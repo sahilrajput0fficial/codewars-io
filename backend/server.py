@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from modules.auth.router import router as auth_router
+import uvicorn
 
 app = FastAPI(
     title="CodeWars.IO API",
@@ -8,7 +9,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Set up CORS middleware to allow frontend communication
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -17,9 +17,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include Auth Router
 app.include_router(auth_router)
 
 @app.get("/")
 def read_root() -> dict[str, str]:
-    return {"message": "Welcome to CodeWars.IO API. Go to /docs for Swagger documentation."}
+    return {
+        "message": "Welcome to CodeWars.IO API. Go to /docs for Swagger documentation."
+    }
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "server:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )
