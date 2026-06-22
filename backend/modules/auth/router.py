@@ -1,31 +1,93 @@
-from typing import Dict
-from fastapi import APIRouter, Depends, status
-from sqlmodel import Session
+from datetime import timedelta
+from typing import Dict, Any
+from fastapi import APIRouter, Depends, status, Response
+from security import create_jwt, verify_jwt
+from sqlmodel import Session, select
 from db.session import get_session
-from .schemas import UserLoginRequest, UserSignupRequest, OAuthSyncRequest
+from .schemas import UserLoginRequest, UserSignupRequest, ForgetPasswordSchema, OAuthExchangeRequest
 from .tables import User
-from .services import user_signup, user_login, sync_supabase_oauth_user
+from .services import user_signup, user_login, user_forget_password, exchange_supabase_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-@router.post("/signup", response_model=User, status_code=status.HTTP_201_CREATED)
-def signup(payload: UserSignupRequest, session: Session = Depends(get_session)) -> User:
-    return user_signup(session=session, payload=payload)
+def _set_jwt_cookie(response: Response, email: str) -> None:
+    token: str = create_jwt({"sub": email}, expires_delta=timedelta(days=365))
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        max_age=365 * 24 * 60 * 60,  # 365 days in seconds
+        secure=False,                # Set to True in production with HTTPS
+        samesite="lax"
+    )
 
-@router.post("/login", response_model=User)
-def login(payload: UserLoginRequest, session: Session = Depends(get_session)) -> User:
-    return user_login(session=session, payload=payload)
+@router.post("/signup", status_code=status.HTTP_201_CREATED)
+def signup(
+    payload: UserSignupRequest, 
+    response: Response, 
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    user: User = user_signup(session=session, payload=payload)
+    _set_jwt_cookie(response=response, email=user.email)
+    return {"message": "User created successfully", "user": user}
+
+@router.post("/login")
+def login(
+    payload: UserLoginRequest, 
+    response: Response, 
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    user: User = user_login(session=session, payload=payload)
+    _set_jwt_cookie(response=response, email=user.email)
+    return {"message": "Login successful", "user": user}
 
 @router.post("/logout")
-def logout() -> Dict[str, str]:
-    return {"message": "Successfully logged out. Please delete your access token."}
-
-@router.post("/oauth/sync", response_model=User)
-def oauth_sync(payload: OAuthSyncRequest, session: Session = Depends(get_session)) -> User:
-    return sync_supabase_oauth_user(
-        session=session,
-        user_id=payload.user_id,
-        email=payload.email,
-        username=payload.username,
-        avatar_url=payload.avatar_url
+def logout(response: Response) -> Dict[str, str]:
+    response.delete_cookie(
+        key="access_token",
+        httponly=True,
+        secure=False,
+        samesite="lax"
     )
+    return {"message": "Logged out successfully"}
+
+@router.post("/forget-pass")
+def forget_pass(
+    payload: ForgetPasswordSchema, 
+    response: Response, 
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    user: User = user_forget_password(session=session, payload=payload)
+    # Clear old cookie first
+    response.delete_cookie(
+        key="access_token",
+        httponly=True,
+        secure=False,
+        samesite="lax"
+    )
+    # Set new cookie with updated user info
+    _set_jwt_cookie(response=response, email=user.email)
+    return {"message": "Password reset successfully", "user": user}
+
+@router.post("/exchange")
+def exchange(
+    payload: OAuthExchangeRequest, 
+    response: Response, 
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    user: User = exchange_supabase_token(session=session, access_token=payload.access_token)
+    _set_jwt_cookie(response=response, email=user.email)
+    return {"message": "OAuth login successful", "user": user}
+
+@router.get("/me", response_model=User)
+def get_me(
+    session: Session = Depends(get_session),
+    jwt_data: Dict[str, Any] = Depends(verify_jwt)
+) -> User:
+    email: str = jwt_data.get("sub", "")
+    statement = select(User).where(User.email == email)
+    user: User | None = session.exec(statement).first()
+    if not user:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="User profile not found")
+    return user

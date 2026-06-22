@@ -1,5 +1,12 @@
 import hashlib
 import os
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional
+import jwt
+from config import Credentials
+from fastapi import Cookie, HTTPException, status
+
+ALGORITHM: str = "HS256"
 
 def hash_password(password: str) -> str:
     salt = os.urandom(16)
@@ -25,3 +32,37 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return new_key == key
     except Exception:
         return False
+
+def create_jwt(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    to_encode: Dict[str, Any] = data.copy()
+    if expires_delta:
+        expire: datetime = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire: datetime = datetime.now(timezone.utc) + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt: str = jwt.encode(to_encode, Credentials.SUPER_SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def verify_jwt(access_token: Optional[str] = Cookie(None)) -> Dict[str, Any]:
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Not authenticated"
+        )
+    try:
+        payload: Dict[str, Any] = jwt.decode(
+            access_token, 
+            Credentials.SUPER_SECRET_KEY, 
+            algorithms=[ALGORITHM]
+        )
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Token expired"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Invalid token"
+        )

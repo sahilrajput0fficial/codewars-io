@@ -17,3 +17,11 @@ class OAuthSyncRequest(BaseModel):
     email: str
     username: str 
     avatar_url: str | None = None
+
+class ForgetPasswordSchema(BaseModel):
+    email: str
+    username: str
+    new_password: str
+
+class OAuthExchangeRequest(BaseModel):
+    access_token: str
