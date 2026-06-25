@@ -9,7 +9,7 @@ class User(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     username: str = Field(max_length=30, unique=True, index=True, nullable=False)
     email: str = Field(nullable=False)
-    elo: int = Field(default=0)
+    elo: int = Field(default=0 , index=True)
     wins: int = Field(default=0)
     losses: int = Field(default=0)
     matches_played: int = Field(default=0)
