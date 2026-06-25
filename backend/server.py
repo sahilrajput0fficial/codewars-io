@@ -5,11 +5,6 @@ from modules.leaderboard.router import router as leaderboard_router
 import uvicorn
 from sqlmodel import Session , SQLModel
 from db.session import  engine
-def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
-
-
-
 
 app = FastAPI(
     title="CodeWars.IO API",
