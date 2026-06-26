@@ -1,13 +1,13 @@
 from datetime import timedelta
 from typing import Dict, Any
-from fastapi import APIRouter, Depends, status, Response
-from security import create_jwt, verify_jwt
+from fastapi import APIRouter, Depends, status, Response, HTTPException
+from core.security import verify_jwt , create_jwt
 from sqlmodel import Session, select
 from db.session import get_session
 from .schemas import UserLoginRequest, UserSignupRequest, ForgetPasswordSchema, OAuthExchangeRequest
 from .tables import User
 from .services import user_signup, user_login, user_forget_password, exchange_supabase_token
-
+from .dependencies import get_current_user
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 def _set_jwt_cookie(response: Response, email: str) -> None:
@@ -84,10 +84,7 @@ def get_me(
     session: Session = Depends(get_session),
     jwt_data: Dict[str, Any] = Depends(verify_jwt)
 ) -> User:
-    email: str = jwt_data.get("sub", "")
-    statement = select(User).where(User.email == email)
-    user: User | None = session.exec(statement).first()
-    if not user:
-        from fastapi import HTTPException
+    current_user = get_current_user(session , jwt_data)
+    if not current_user:
         raise HTTPException(status_code=404, detail="User profile not found")
-    return user
+    return current_user

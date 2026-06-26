@@ -1,7 +1,9 @@
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import computed_field
 
-class Credentials(BaseSettings):
+class Settings(BaseSettings):
+    ENVIRONMENT : str 
     DATABASE_URL: str
     SUPER_SECRET_KEY: str
     SUPABASE_ANON_KEY: str
@@ -17,4 +19,12 @@ class Credentials(BaseSettings):
         case_sensitive=False
     )
 
-Credentials = Credentials()
+
+    @computed_field
+    @property
+    def active_database_url(self) -> str:
+        if self.ENVIRONMENT == "development":
+            return "sqlite:///database.db"
+        return self.DATABASE_URL
+
+Credentials = Settings()

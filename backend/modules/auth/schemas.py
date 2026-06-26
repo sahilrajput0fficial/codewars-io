@@ -1,7 +1,9 @@
 import uuid
 from pydantic import BaseModel
+import datetime
 
 # ============ REQUEST ==================
+
 
 class UserLoginRequest(BaseModel):
     username: str
@@ -25,3 +27,17 @@ class ForgetPasswordSchema(BaseModel):
 
 class OAuthExchangeRequest(BaseModel):
     access_token: str
+
+
+#============= Response ===================#
+class UserPublic(BaseModel):
+    """Public response model for user"""
+    id: uuid.UUID
+    username: str
+    email: str
+    wins : int 
+    losses : int
+    elo : int
+    avatar_url : str | None = None 
+    created_at : datetime.datetime
+    matches_played : int

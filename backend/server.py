@@ -1,7 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from modules.auth.router import router as auth_router
+from modules.leaderboard.router import router as leaderboard_router
 import uvicorn
+from sqlmodel import Session , SQLModel
+from db.session import  engine
 
 app = FastAPI(
     title="CodeWars.IO API",
@@ -18,6 +21,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(leaderboard_router)
 
 @app.get("/")
 def read_root() -> dict[str, str]:
@@ -28,7 +32,6 @@ def read_root() -> dict[str, str]:
 if __name__ == "__main__":
     uvicorn.run(
         "server:app",
-        host="0.0.0.0",
         port=8000,
         reload=True
     )
