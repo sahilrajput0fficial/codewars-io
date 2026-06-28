@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, status, Response, HTTPException
 from core.security import verify_jwt , create_jwt
 from sqlmodel import Session, select
 from db.session import get_session
+from config import Credentials
 from .schemas import UserLoginRequest, UserSignupRequest, ForgetPasswordSchema, OAuthExchangeRequest
 from .tables import User
 from .services import user_signup, user_login, user_forget_password, exchange_supabase_token
@@ -12,13 +13,14 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 def _set_jwt_cookie(response: Response, email: str) -> None:
     token: str = create_jwt({"sub": email}, expires_delta=timedelta(days=365))
+    is_production = Credentials.ENVIRONMENT == "production"
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
         max_age=365 * 24 * 60 * 60,  # 365 days in seconds
-        secure=False,                # Set to True in production with HTTPS
-        samesite="lax"
+        secure=is_production,                # Set to True in production with HTTPS
+        samesite="none" if is_production else "lax"
     )
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
@@ -43,11 +45,12 @@ def login(
 
 @router.post("/logout")
 def logout(response: Response) -> Dict[str, str]:
+    is_production = Credentials.ENVIRONMENT == "production"
     response.delete_cookie(
         key="access_token",
         httponly=True,
-        secure=False,
-        samesite="lax"
+        secure=is_production,
+        samesite="none" if is_production else "lax"
     )
     return {"message": "Logged out successfully"}
 
@@ -58,12 +61,13 @@ def forget_pass(
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:
     user: User = user_forget_password(session=session, payload=payload)
+    is_production = Credentials.ENVIRONMENT == "production"
     # Clear old cookie first
     response.delete_cookie(
         key="access_token",
         httponly=True,
-        secure=False,
-        samesite="lax"
+        secure=is_production,
+        samesite="none" if is_production else "lax"
     )
     # Set new cookie with updated user info
     _set_jwt_cookie(response=response, email=user.email)

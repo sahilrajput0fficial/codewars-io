@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     GCP_ClIENT_SECRET: Optional[str] = None
     GITHUB_CLIENT_ID: Optional[str] = None
     GITHUB_CLIENT_SECERT: Optional[str] = None
+    FRONTEND_URL: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(
         env_file=".env",

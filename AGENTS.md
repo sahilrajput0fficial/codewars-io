@@ -307,3 +307,102 @@ frontend/
 - Difficulty filters on `/problems` and tier filters on `/leaderboard`
   are query params on the same route (`?difficulty=easy`,
   `?tier=gold`) — never separate routes per filter value.
+
+---
+
+## Build & Deployment (Vercel Multi-Project)
+
+Both the frontend (Next.js) and backend (FastAPI) are deployed in a single Vercel project using Vercel's experimental multi-project services configuration (`vercel.json`).
+
+### 1. Development Mode (Localhost)
+For local development, both services run independently on different localhost ports.
+
+* **Frontend:** `http://localhost:3000`
+* **Backend:** `http://localhost:8000`
+
+#### Environment Configuration:
+* **Frontend (`frontend/.env.local`):**
+  ```env
+  NEXT_PUBLIC_ENVIRONMENT=development
+  NEXT_PUBLIC_API_URL=http://localhost:8000
+  NEXT_PUBLIC_FRONTEND_URL=http://localhost:3000
+  ```
+* **Backend (`backend/.env`):**
+  ```env
+  ENVIRONMENT=development
+  FRONTEND_URL=http://localhost:3000
+  ```
+
+---
+
+### 2. Production Mode (Vercel)
+In production, both services are served on the same domain (e.g., `https://codewars-io.vercel.app`), with the backend routed under the prefix `/_/backend`.
+
+* **Frontend:** `https://codewars-io.vercel.app`
+* **Backend:** `https://codewars-io.vercel.app/_/backend`
+
+#### How to configure Vercel:
+You must configure the following environment variables in the **Vercel Project Dashboard** (Go to *Project Settings > Environment Variables*):
+
+1. **Frontend Service Variables:**
+   * `NEXT_PUBLIC_ENVIRONMENT` = `production`
+   * *(Optional)* `NEXT_PUBLIC_API_URL` = `https://codewars-io.vercel.app/_/backend`
+   * *(Optional)* `NEXT_PUBLIC_FRONTEND_URL` = `https://codewars-io.vercel.app`
+
+2. **Backend Service Variables:**
+   * `ENVIRONMENT` = `production`
+   * `FRONTEND_URL` = `https://codewars-io.vercel.app`
+
+#### Build-Time Safety Guard:
+The frontend has a safety guard in `frontend/next.config.ts`. If Vercel tries to build the application and `NEXT_PUBLIC_ENVIRONMENT` is not set to `production`, the build will fail immediately. This ensures development settings are never accidentally deployed.
+
+Once the environment variables are configured on Vercel, every push to the `main` branch will trigger Vercel's automated git integration to build and deploy in production mode automatically.
+
+### 3. Deploying to Production (Git Workflow)
+Run the following commands to commit your configurations and push to GitHub:
+
+```powershell
+# 1. Verify the modified files
+git status
+
+# 2. Stage all changed files
+git add .
+
+# 3. Commit the changes
+git commit -m "chore: configure vercel production environment variables and safety guards"
+
+# 4. Push to origin main to trigger Vercel's auto-build
+git push origin main
+```
+
+---
+
+### 4. Daily Feature Development & Deployment Workflow (Step-by-Step Example)
+
+Here is a step-by-step example of how to develop a new feature (e.g., adding a `"User Profile Settings"` page) locally and deploy it online to Vercel without manual configuration changes:
+
+#### Step 1: Develop and Test Locally
+Ensure your local environment files specify the development environment.
+* `frontend/.env.local` contains `NEXT_PUBLIC_ENVIRONMENT=development`
+* `backend/.env` contains `ENVIRONMENT=development`
+
+Start your local services (FastAPI on port `8000`, Next.js on port `3000`). All API calls will automatically route to `http://localhost:8000`. Test the feature in your browser at `http://localhost:3000`.
+
+#### Step 2: Push to GitHub to Deploy Live
+Once your feature is complete and working locally, you do **not** need to edit any configuration or URL files. Simply run the following git commands:
+
+```powershell
+# 1. Review changed and untracked files
+git status
+
+# 2. Stage your new feature code
+git add .
+
+# 3. Commit your feature changes
+git commit -m "feat: implement user profile settings page"
+
+# 4. Push to main branch (triggers Vercel production build automatically)
+git push origin main
+```
+
+Vercel will build the project using its configured production environment variables, compile your Next.js frontend to securely call `https://codewars-io.vercel.app/_/backend`, and publish it live!
