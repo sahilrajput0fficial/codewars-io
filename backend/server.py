@@ -5,6 +5,7 @@ from modules.leaderboard.router import router as leaderboard_router
 import uvicorn
 from sqlmodel import Session , SQLModel
 from db.session import  engine
+from config import Credentials
 
 app = FastAPI(
     title="CodeWars.IO API",
@@ -12,9 +13,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
+origins = ["http://localhost:3000"]
+if Credentials.FRONTEND_URL not in origins:
+    origins.append(Credentials.FRONTEND_URL)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
