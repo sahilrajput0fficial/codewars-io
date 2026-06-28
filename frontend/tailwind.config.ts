@@ -10,7 +10,14 @@ export default {
   ],
   theme: {
     extend: {
+      // ── DESIGN.md §6 — typography ──────────────────────────────────────
+      fontFamily: {
+        sans: ["var(--font-inter)", "Arial", "sans-serif"],
+        mono: ["var(--font-jetbrains-mono)", "Courier New", "monospace"],
+      },
+
       colors: {
+        // ── shadcn/ui tokens (keep untouched) ───────────────────────────
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -51,7 +58,38 @@ export default {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
+
+        // ── DESIGN.md §1 tokens ─────────────────────────────────────────
+        // Tailwind prefix: `cw-*`  (avoids collision with built-in names)
+        // CSS variable:   `--color-*`  (matches DESIGN.md exactly)
+        //
+        // Usage:  className="bg-cw-surface text-cw-text-primary"
+        //         style={{ color: "var(--color-accent)" }}    ← inline style
+        cw: {
+          bg:              "var(--color-bg)",
+          surface:         "var(--color-surface)",
+          "surface-2":     "var(--color-surface-2)",
+          border:          "var(--color-border)",
+          "text-primary":  "var(--color-text-primary)",
+          "text-secondary":"var(--color-text-secondary)",
+          "text-tertiary": "var(--color-text-tertiary)",
+          "text-on-accent":"var(--color-text-on-accent)",
+          accent:          "var(--color-accent)",
+          "accent-hover":  "var(--color-accent-hover)",
+          "accent-muted":  "var(--color-accent-muted)",
+          success:         "var(--color-success)",
+          warning:         "var(--color-warning)",
+          danger:          "var(--color-danger)",
+        },
+        // Tier colors — icons/borders/badges only, never large fills
+        tier: {
+          bronze:  "var(--color-tier-bronze)",
+          silver:  "var(--color-tier-silver)",
+          gold:    "var(--color-tier-gold)",
+          diamond: "var(--color-tier-diamond)",
+        },
       },
+
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

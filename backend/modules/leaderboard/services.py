@@ -6,7 +6,7 @@ from sqlmodel import Session, func, select
 
 from modules.auth.schemas import UserPublic
 from modules.auth.tables import EloHistory, User
-
+from core.schemas import ELOTiers , ELOThreshold
 from .schemas import (
     EloHistoryEntry,
     EloHistoryRequest,
@@ -51,6 +51,18 @@ def _apply_sort_order(stmt, column, sort_order: str):
     return stmt.order_by(column.desc())
 
 
+
+def _get_elo_tiers(elo : int ) ->str:
+    if elo >= ELOThreshold.diamond:
+        return ELOTiers.diamond
+    elif elo>= ELOThreshold.gold:
+        return ELOTiers.gold
+    elif elo>= ELOThreshold.silver:
+        return ELOTiers.silver
+    else:
+        return ELOTiers.bronze
+
+
 # ─────────────────────────────────────────────
 #  Service Functions
 # ─────────────────────────────────────────────
@@ -82,12 +94,36 @@ def get_global_leaderboard_service(
 
     rank_col = func.rank().over(order_by=rank_order).label("rank")
 
-    # ── Single query: users + their ranks ──────────────────────────────
-    # We still respect sort_order from the request for display ordering;
-    # rank itself is always computed best-first (see rank_order above).
+    # Define a subquery with the user ID and their absolute global rank calculated over all users
+    subquery = select(User.id.label("user_id"), rank_col).subquery()
+    '''
+    sql equivalent :
+    SELECT id as user_id,RANK() OVER (ORDER BY elo DESC) AS rank
+    FROM users;
+    '''
+
+    
+
+    # Join the User table to the subquery to fetch users along with their absolute rank
+    stmt = select(User, subquery.c.rank).join(subquery, User.id == subquery.c.user_id)
+    '''sql equivalent
+    SELECT u.* , r.rank
+    FROM users u
+    JOIN (
+        SELECT id as user_id, RANK() OVER (ORDER BY elo DESC) AS rank
+        FROM users
+    ) r ON u.id = r.user_id
+    WHERE u.username ILIKE '%keyword%';
+    '''
+
+    if query.q:
+
+        stmt = stmt.where(User.username.ilike(f'%{query.q}%'))
+
+        
+
     page_stmt = (
-        select(User, rank_col)
-        .order_by(rank_order if query.sort_order == "desc" else column.asc())
+        stmt.order_by(rank_order if query.sort_order == "desc" else column.asc())
         .limit(query.limit)
         .offset(query.offset)
     )
@@ -98,8 +134,16 @@ def get_global_leaderboard_service(
         for user, rank in rows
     ]
 
-    # Total count — separate scalar query (unavoidable for pagination metadata)
-    total: int = session.exec(select(func.count()).select_from(User)).one()
+    # Total counts — unfiltered global count and filtered total count
+    total_global: int = session.exec(select(func.count()).select_from(User)).one()
+
+    if not query.q:
+        total: int = total_global
+    else:
+        total = session.exec(select(func.count()).select_from(User)
+                    .where(User.username.ilike(f'%{query.q}%'))).one()
+
+    links = _generate_hateoas_links(total=total, limit=query.limit, offset=query.offset)
 
     return LeaderboardListResponse(
         total=total,
@@ -107,7 +151,94 @@ def get_global_leaderboard_service(
         offset=query.offset,
         sort_by=query.sort_by,
         entries=entries,
+        total_global=total_global,
+        links=links,
     )
+
+
+def _generate_hateoas_links(total: int, limit: int, offset: int) -> list[dict]:
+    """Generate page navigation links following hypermedia/HATEOAS constraints.
+
+    Renders a standard page range: First Page, Previous Page, Adjacent Pages,
+    Ellipsis placeholders, Next Page, and Last Page.
+    """
+    links = []
+    total_pages = (total + limit - 1) // limit if total > 0 else 1
+    current_page = (offset // limit) + 1
+
+    # 1. Previous navigation link
+    if current_page > 1:
+        links.append({
+            "rel": "prev",
+            "label": "Previous",
+            "offset": max(0, offset - limit),
+            "is_active": False
+        })
+
+    # 2. Page Range buttons
+    if total_pages <= 5:
+        for p in range(1, total_pages + 1):
+            links.append({
+                "rel": "page",
+                "label": str(p),
+                "offset": (p - 1) * limit,
+                "is_active": (p == current_page)
+            })
+    else:
+        # First page
+        links.append({
+            "rel": "first",
+            "label": "1",
+            "offset": 0,
+            "is_active": (current_page == 1)
+        })
+
+        if current_page > 3:
+            links.append({
+                "rel": "ellipsis",
+                "label": "...",
+                "offset": None,
+                "is_active": False
+            })
+
+        start = max(2, current_page - 1)
+        end = min(total_pages - 1, current_page + 1)
+        for p in range(start, end + 1):
+            if p > 1 and p < total_pages:
+                links.append({
+                    "rel": "page",
+                    "label": str(p),
+                    "offset": (p - 1) * limit,
+                    "is_active": (p == current_page)
+                })
+
+        if current_page < total_pages - 2:
+            links.append({
+                "rel": "ellipsis",
+                "label": "...",
+                "offset": None,
+                "is_active": False
+            })
+
+        # Last page
+        links.append({
+            "rel": "last",
+            "label": str(total_pages),
+            "offset": (total_pages - 1) * limit,
+            "is_active": (current_page == total_pages)
+        })
+
+    # 3. Next navigation link
+    if current_page < total_pages:
+        links.append({
+            "rel": "next",
+            "label": "Next",
+            "offset": offset + limit,
+            "is_active": False
+        })
+
+    return links
+
 
 
 def get_leaderboard_me_service(

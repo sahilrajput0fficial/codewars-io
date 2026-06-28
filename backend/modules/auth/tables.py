@@ -1,7 +1,8 @@
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Optional , Literal
 import uuid
 from sqlmodel import Field, Relationship, SQLModel
+from core.schemas import ELOTiers
 
 class User(SQLModel, table=True):
     __tablename__: str = "users"
@@ -18,6 +19,7 @@ class User(SQLModel, table=True):
     avatar_url: Optional[str] = Field(default=None)
     hashed_password: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    elo_tier : ELOTiers = Field(default=ELOTiers.bronze)
 
     # Relationships
     elo_history: List["EloHistory"] = Relationship(back_populates="user", cascade_delete=True)
