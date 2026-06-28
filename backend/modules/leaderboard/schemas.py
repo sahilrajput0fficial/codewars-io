@@ -74,7 +74,20 @@ class EloHistoryResponse(BaseModel):
     history: list[EloHistoryEntry]
 
 
+class HATEOASLink(BaseModel):
+    """Hypermedia link representing a navigation action."""
+    rel: str = Field(description="Relationship type: first, prev, page, ellipsis, next, last")
+    label: str = Field(description="Visual label: e.g., '1', '...', 'Previous', 'Next'")
+    offset: Optional[int] = Field(default=None, description="Offset for pagination query")
+    is_active: bool = Field(default=False, description="Is this the current active page")
+
+
 class LeaderboardListResponse(ListResponse):
     """Paginated leaderboard list with ranked entries."""
     sort_by: SortBy
     entries: list[LeaderboardEntry]
+    total_global: int = Field(default=0, description="Total number of users in the system without filtering")
+    links: list[HATEOASLink] = []
+
+
+

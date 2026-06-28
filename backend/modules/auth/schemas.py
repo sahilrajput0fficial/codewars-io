@@ -41,3 +41,4 @@ class UserPublic(BaseModel):
     avatar_url : str | None = None 
     created_at : datetime.datetime
     matches_played : int
+    elo_tier : str
