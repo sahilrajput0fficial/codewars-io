@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 @layer base {
+
   /* ── shadcn/ui light theme ──────────────────────────────────────────── */
   :root {
     --background: 0 0% 100%;
@@ -67,34 +68,34 @@
   :root,
   .dark {
     /* Surfaces */
-    --color-bg:         #09090B;
-    --color-surface:    #111113;
-    --color-surface-2:  #18181B;
-    --color-border:     #1F1F23;
+    --color-bg: #09090B;
+    --color-surface: #111113;
+    --color-surface-2: #18181B;
+    --color-border: #1F1F23;
 
     /* Text */
-    --color-text-primary:   #FAFAFA;
+    --color-text-primary: #FAFAFA;
     --color-text-secondary: #71717A;
-    --color-text-tertiary:  #3F3F46;
+    --color-text-tertiary: #3F3F46;
 
     /* Text on accent — always off-white regardless of theme.
        Use only for text/icons sitting on top of --color-accent fills. */
     --color-text-on-accent: #FAFAFA;
 
     /* Accent */
-    --color-accent:       #E04646;
+    --color-accent: #E04646;
     --color-accent-hover: #C93A3A;
     --color-accent-muted: #E0464622;
 
     /* Status */
     --color-success: #10B981;
     --color-warning: #E0A82E;
-    --color-danger:  #E04646;
+    --color-danger: #E04646;
 
     /* Rank tiers — icons/borders ONLY, never large fills */
-    --color-tier-bronze:  #8B6543;
-    --color-tier-silver:  #9CA3AF;
-    --color-tier-gold:    #C9A227;
+    --color-tier-bronze: #8B6543;
+    --color-tier-silver: #9CA3AF;
+    --color-tier-gold: #C9A227;
     --color-tier-diamond: #5EA8D9;
   }
 
@@ -103,33 +104,33 @@
   /* ────────────────────────────────────────────────────────────────────── */
   .light {
     /* Surfaces */
-    --color-bg:         #FFFFFF;
-    --color-surface:    #FAFAFA;
-    --color-surface-2:  #F1F1F2;
-    --color-border:     #E4E4E7;
+    --color-bg: #FFFFFF;
+    --color-surface: #FAFAFA;
+    --color-surface-2: #F1F1F2;
+    --color-border: #E4E4E7;
 
     /* Text */
-    --color-text-primary:   #18181B;
+    --color-text-primary: #18181B;
     --color-text-secondary: #71717A;
-    --color-text-tertiary:  #A1A1AA;
+    --color-text-tertiary: #A1A1AA;
 
     /* Text on accent — darkened accent needs lighter on-top text */
     --color-text-on-accent: #FAFAFA;
 
     /* Accent (darkened ~10% for light bg — see DESIGN.md §1.3) */
-    --color-accent:       #D33D3D;
+    --color-accent: #D33D3D;
     --color-accent-hover: #B83434;
     --color-accent-muted: #D33D3D1A;
 
     /* Status */
     --color-success: #0E9A6B;
     --color-warning: #C9921E;
-    --color-danger:  #D33D3D;
+    --color-danger: #D33D3D;
 
     /* Rank tiers — unchanged, work on both backgrounds */
-    --color-tier-bronze:  #8B6543;
-    --color-tier-silver:  #9CA3AF;
-    --color-tier-gold:    #C9A227;
+    --color-tier-bronze: #8B6543;
+    --color-tier-silver: #9CA3AF;
+    --color-tier-gold: #C9A227;
     --color-tier-diamond: #5EA8D9;
   }
 }
@@ -138,7 +139,89 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* ── DESIGN.md §10 — Keyframe declarations for inline animation: usage ─────── */
+/* These mirror the Tailwind keyframes exactly so server-component inline       */
+/* style={{ animation: "..." }} calls work alongside Tailwind utilities.        */
+
+@keyframes pulse-live {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes ring-ping {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes rise-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes count-tick {
+  0% {
+    transform: translateY(-2px);
+    opacity: 0.4;
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes tick-flash {
+  0% {
+    color: var(--color-text-primary);
+  }
+
+  40% {
+    color: var(--color-accent);
+  }
+
+  100% {
+    color: var(--color-text-primary);
+  }
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
   }
 }

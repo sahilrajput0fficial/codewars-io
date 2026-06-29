@@ -1,29 +1,32 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useState, useEffect } from "react";
-import { Search, SlidersHorizontal, Globe, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  Search,
+  SlidersHorizontal,
+  Globe,
+  ChevronLeft,
+  ChevronRight,
+  Target,
+} from "lucide-react";
 
 // ─── Search Bar ──────────────────────────────────────────────────────────────
 
 export function LeaderboardSearch() {
-  const router       = useRouter();
-  const pathname     = usePathname();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const qParam = searchParams.get("q") ?? "";
   const [searchTerm, setSearchTerm] = useState(qParam);
 
-  // Sync state with URL when search parameter changes externally
   useEffect(() => {
     setSearchTerm(qParam);
   }, [qParam]);
 
-  // Debounced navigation effect
   useEffect(() => {
-    if (searchTerm === qParam) {
-      return;
-    }
+    if (searchTerm === qParam) return;
 
     const delayDebounceFn = setTimeout(() => {
       const params = new URLSearchParams(searchParams.toString());
@@ -40,29 +43,15 @@ export function LeaderboardSearch() {
   }, [searchTerm, qParam, pathname, router, searchParams]);
 
   return (
-    <div className="relative flex-1 max-w-md">
-      <Search
-        className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-        style={{ color: "var(--color-text-tertiary)" }}
-      />
+    <div className="relative flex-1 max-w-sm">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cw-text-tertiary" />
       <input
         id="leaderboard-search"
         type="text"
         placeholder="Search warriors..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className="w-full text-sm pl-10 pr-4 h-10 rounded-lg focus:outline-none transition-colors"
-        style={{
-          background: "var(--color-surface)",
-          border: "1px solid var(--color-border)",
-          color: "var(--color-text-primary)",
-        }}
-        onFocus={(e) =>
-          (e.currentTarget.style.borderColor = "var(--color-accent)")
-        }
-        onBlur={(e) =>
-          (e.currentTarget.style.borderColor = "var(--color-border)")
-        }
+        className="w-full text-sm pl-9 pr-4 h-9 rounded-xl focus:outline-none bg-cw-surface border border-cw-border text-cw-text-primary focus:border-cw-accent transition-colors placeholder-cw-text-tertiary"
       />
     </div>
   );
@@ -71,15 +60,15 @@ export function LeaderboardSearch() {
 // ─── Sort Filter ─────────────────────────────────────────────────────────────
 
 export function SortFilter() {
-  const router       = useRouter();
-  const pathname     = usePathname();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const current = searchParams.get("sort_by") ?? "elo";
 
   const options = [
-    { value: "elo",            label: "ELO" },
-    { value: "wins",           label: "Wins" },
+    { value: "elo", label: "ELO" },
+    { value: "wins", label: "Wins" },
     { value: "matches_played", label: "Matches" },
   ];
 
@@ -92,42 +81,37 @@ export function SortFilter() {
 
   return (
     <div className="flex items-center gap-2">
-      <span
-        className="text-xs flex items-center gap-1"
-        style={{ color: "var(--color-text-tertiary)" }}
-      >
-        <SlidersHorizontal className="w-3.5 h-3.5" /> Sort
+      <span className="text-[10px] font-black tracking-widest flex items-center gap-1 text-cw-text-tertiary">
+        <SlidersHorizontal className="w-3 h-3" />
+        SORT
       </span>
 
-      {options.map((o) => {
-        const active = current === o.value;
-        return (
-          <button
-            key={o.value}
-            id={`sort-${o.value}`}
-            onClick={() => set(o.value)}
-            className="px-3 h-8 text-xs font-medium rounded border transition-colors"
-            style={{
-              borderColor:     active ? "var(--color-accent)"          : "var(--color-border)",
-              color:           active ? "var(--color-accent)"          : "var(--color-text-secondary)",
-              background:      active ? "var(--color-accent-muted)"    : "var(--color-surface)",
-            }}
-          >
-            {o.label}
-          </button>
-        );
-      })}
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-cw-surface-2 border border-cw-border">
+        {options.map((o) => {
+          const active = current === o.value;
+          return (
+            <button
+              key={o.value}
+              id={`sort-${o.value}`}
+              onClick={() => set(o.value)}
+              className={`px-3 py-1 text-[11px] font-bold rounded-lg transition-colors border ${
+                active
+                  ? "bg-cw-bg text-cw-text-primary border-cw-border shadow-sm"
+                  : "bg-transparent border-transparent text-cw-text-secondary hover:text-cw-text-primary"
+              }`}
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
 
       <button
         id="scope-global"
-        className="ml-2 px-3 h-8 text-xs font-medium rounded border flex items-center gap-1.5 transition-colors"
-        style={{
-          borderColor: "var(--color-border)",
-          color:       "var(--color-text-secondary)",
-          background:  "var(--color-surface)",
-        }}
+        className="ml-1 px-3 h-8 text-[11px] font-bold tracking-wide border rounded-xl flex items-center gap-1.5 transition-colors bg-cw-surface border-cw-border text-cw-text-tertiary hover:text-cw-text-secondary"
       >
-        <Globe className="w-3.5 h-3.5" /> Global
+        <Globe className="w-3 h-3" />
+        Global
       </button>
     </div>
   );
@@ -153,12 +137,12 @@ export function Pagination({
   offset: number;
   links?: HATEOASLink[];
 }) {
-  const router       = useRouter();
-  const pathname     = usePathname();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const from = offset + 1;
-  const to   = Math.min(offset + limit, total);
+  const to = Math.min(offset + limit, total);
 
   const go = (newOffset: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -166,24 +150,11 @@ export function Pagination({
     router.replace(`${pathname}?${params.toString()}`);
   };
 
-  const btnStyle = {
-    borderColor: "var(--color-border)",
-    color:       "var(--color-text-secondary)",
-    background:  "var(--color-surface)",
-  };
-
-  const activeStyle = {
-    borderColor: "var(--color-accent)",
-    color:       "var(--color-accent)",
-    background:  "var(--color-accent-muted)",
-  };
-
   let renderLinks = links || [];
   if (renderLinks.length === 0 && total > 0) {
-    const totalPages  = Math.ceil(total / limit);
+    const totalPages = Math.ceil(total / limit);
     const currentPage = Math.floor(offset / limit) + 1;
 
-    // 1. Previous button link
     renderLinks.push({
       rel: "prev",
       label: "Previous",
@@ -201,7 +172,6 @@ export function Pagination({
         });
       }
     } else {
-      // First page
       renderLinks.push({
         rel: "first",
         label: "1",
@@ -219,7 +189,7 @@ export function Pagination({
       }
 
       const start = Math.max(2, currentPage - 1);
-      const end   = Math.min(totalPages - 1, currentPage + 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
       for (let i = start; i <= end; i++) {
         if (i > 1 && i < totalPages) {
           renderLinks.push({
@@ -240,7 +210,6 @@ export function Pagination({
         });
       }
 
-      // Last page
       renderLinks.push({
         rel: "last",
         label: String(totalPages),
@@ -249,7 +218,6 @@ export function Pagination({
       });
     }
 
-    // 2. Next button link
     renderLinks.push({
       rel: "next",
       label: "Next",
@@ -259,16 +227,10 @@ export function Pagination({
   }
 
   return (
-    <div
-      className="flex flex-col sm:flex-row items-center gap-4 sm:gap-0 justify-between px-4 py-3 border-t"
-      style={{ borderColor: "var(--color-border)" }}
-    >
-      <span
-        className="text-xs font-mono"
-        style={{ color: "var(--color-text-tertiary)" }}
-      >
-        Showing {from.toLocaleString()}–{to.toLocaleString()} of{" "}
-        {total.toLocaleString()}
+    <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-0 justify-between px-4 py-3 border-t border-cw-border">
+      <span className="text-[10px] font-mono font-semibold text-cw-text-tertiary">
+        {from.toLocaleString()}–{to.toLocaleString()} of{" "}
+        {total.toLocaleString()} warriors
       </span>
 
       <div className="flex items-center gap-1 flex-wrap">
@@ -277,8 +239,7 @@ export function Pagination({
             return (
               <span
                 key={`ellipsis-${idx}`}
-                className="px-2 text-xs font-mono select-none"
-                style={{ color: "var(--color-text-tertiary)" }}
+                className="px-2 text-xs font-mono select-none text-cw-text-tertiary"
               >
                 ...
               </span>
@@ -286,17 +247,22 @@ export function Pagination({
           }
 
           const disabled = link.offset === null;
-          const active   = link.is_active;
+          const active = link.is_active;
 
           return (
             <button
               key={`${link.rel}-${link.label}-${idx}`}
               disabled={disabled}
               onClick={() => link.offset !== null && go(link.offset)}
-              className={`text-xs font-semibold rounded border transition-colors font-mono disabled:opacity-30 flex items-center justify-center ${
-                link.rel === "prev" || link.rel === "next" ? "px-3 h-8" : "w-8 h-8"
+              className={`text-[11px] font-bold border transition-colors font-mono disabled:opacity-30 flex items-center justify-center rounded-lg ${
+                link.rel === "prev" || link.rel === "next"
+                  ? "px-3 h-8"
+                  : "w-8 h-8"
+              } ${
+                active
+                  ? "bg-cw-bg text-cw-text-primary border-cw-border shadow-sm font-black"
+                  : "bg-cw-surface border-cw-border text-cw-text-secondary hover:text-cw-text-primary hover:bg-cw-surface-2"
               }`}
-              style={active ? activeStyle : btnStyle}
             >
               {link.rel === "prev" && <ChevronLeft className="w-3.5 h-3.5 mr-0.5" />}
               {link.label}
@@ -318,58 +284,89 @@ export function JumpToMeBar({
   rank: number;
   total: number;
 }) {
-  const pct = ((rank / total) * 100).toFixed(2);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const pct = ((rank / total) * 105).toFixed(1); // normalized percentile rank
+
+  useEffect(() => {
+    if (searchParams.get("jump") === "true") {
+      const t = setTimeout(() => {
+        const myRow = document.getElementById("my-row");
+        if (myRow) {
+          myRow.scrollIntoView({ behavior: "smooth", block: "center" });
+          myRow.style.backgroundColor = "var(--color-accent-muted)";
+          setTimeout(() => {
+            myRow.style.backgroundColor = "";
+          }, 1500);
+
+          // Clean up the jump query param
+          const params = new URLSearchParams(searchParams.toString());
+          params.delete("jump");
+          router.replace(`${pathname}?${params.toString()}`);
+        }
+      }, 500);
+      return () => clearTimeout(t);
+    }
+  }, [searchParams, router, pathname]);
+
+  const handleJump = () => {
+    const myRow = document.getElementById("my-row");
+    if (myRow) {
+      myRow.scrollIntoView({ behavior: "smooth", block: "center" });
+      myRow.style.backgroundColor = "var(--color-accent-muted)";
+      setTimeout(() => {
+        myRow.style.backgroundColor = "";
+      }, 1500);
+    } else {
+      // Clear search query and calculate correct page offset
+      const userOffset = Math.floor((rank - 1) / 10) * 10;
+      const params = new URLSearchParams();
+      params.set("offset", String(userOffset));
+      params.set("jump", "true");
+      router.replace(`${pathname}?${params.toString()}`);
+    }
+  };
 
   return (
     <div
       id="jump-to-me-bar"
-      className="fixed bottom-0 right-0 z-50 flex items-center justify-between px-6 py-3 border-t animate-in fade-in slide-in-from-bottom-4 duration-300 transition-all"
+      className="fixed bottom-0 right-0 z-50 flex items-center justify-between px-6 py-3 border-t bg-cw-surface-2 border-cw-border animate-in fade-in slide-in-from-bottom-4 duration-300"
       style={{
         left: "var(--sidebar-width, 0px)",
-        background:  "var(--color-surface-2)",
-        borderColor: "var(--color-border)",
       }}
     >
       <div className="flex items-center gap-3 text-sm">
-        <span
-          className="w-2 h-2 rounded-full inline-block animate-pulse"
-          style={{ background: "var(--color-accent)" }}
-        />
-        <span style={{ color: "var(--color-text-secondary)" }}>
-          Your current position:{" "}
-          <span
-            className="font-mono font-semibold"
-            style={{ color: "var(--color-text-primary)" }}
-          >
+        <span className="w-1.5 h-1.5 rounded-full inline-block animate-pulse bg-cw-accent" />
+        <span className="text-cw-text-secondary">
+          Your rank:{" "}
+          <span className="font-mono font-bold text-cw-text-primary">
             #{rank.toLocaleString()}
           </span>
         </span>
-        <span style={{ color: "var(--color-text-tertiary)" }}>|</span>
-        <span style={{ color: "var(--color-text-secondary)" }}>
+        <span className="text-cw-border">|</span>
+        <span className="text-cw-text-secondary">
           Top{" "}
-          <span className="font-mono" style={{ color: "var(--color-text-primary)" }}>
+          <span className="font-mono font-semibold text-cw-text-primary">
             {pct}%
           </span>{" "}
-          of all users
+          globally
         </span>
       </div>
 
       <button
         id="jump-to-me-btn"
-        className="px-4 h-8 text-xs font-semibold rounded border flex items-center gap-2 transition-colors hover:border-[var(--color-text-secondary)]"
+        className="px-4 h-8 text-[11px] font-bold tracking-wide border border-cw-border hover:border-cw-text-secondary bg-cw-surface text-cw-text-primary flex items-center gap-2 transition-colors"
         style={{
-          background:  "var(--color-surface)",
-          borderColor: "var(--color-border)",
-          color:       "var(--color-text-primary)",
+          clipPath:
+            "polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%)",
         }}
-        onClick={() => {
-          document
-            .getElementById("personal-standings-bar")
-            ?.scrollIntoView({ behavior: "smooth", block: "center" });
-        }}
+        onClick={handleJump}
       >
-        <span style={{ color: "var(--color-text-tertiary)" }}>⊕</span> Jump to Me
+        <Target className="w-3.5 h-3.5 text-cw-accent" />
+        Jump to Me
       </button>
     </div>
   );
-}
+}

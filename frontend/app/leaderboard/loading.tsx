@@ -23,18 +23,35 @@ export default function LeaderboardLoading() {
           ]}
         />
 
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          {/* Header */}
-          <div className="flex justify-between mb-8">
-            <div className="space-y-2">
-              <div className="h-2 w-28 rounded" style={surface2Style} />
-              <div className="h-8 w-56 rounded" style={surface2Style} />
+        {/* Header Banner Skeleton - Matches h-80 full width */}
+        <div 
+          className="relative w-full border-b border-cw-border h-80 flex flex-col justify-between px-6 md:px-8 py-6 mb-8"
+          style={{ background: "var(--color-bg)" }}
+        >
+          {/* Top row: Timer skeleton */}
+          <div className="flex justify-end">
+            <div className="h-7 w-32 rounded-full" style={surface2Style} />
+          </div>
+
+          {/* Bottom row: Info & Action Buttons skeleton */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full flex-shrink-0" style={surface2Style} />
+              <div className="space-y-2">
+                <div className="h-6 w-40 rounded animate-pulse" style={surface2Style} />
+                <div className="h-4 w-72 rounded animate-pulse" style={surface2Style} />
+              </div>
             </div>
-            <div className="space-y-1 text-right">
-              <div className="h-2 w-20 rounded ml-auto" style={surface2Style} />
-              <div className="h-7 w-32 rounded ml-auto" style={surface2Style} />
+            <div className="flex gap-3">
+              <div className="w-9 h-9 rounded-full" style={surface2Style} />
+              <div className="h-9 w-28 rounded-full" style={surface2Style} />
+              <div className="h-9 w-24 rounded-full" style={surface2Style} />
+              <div className="h-9 w-28 rounded-full" style={surface2Style} />
             </div>
           </div>
+        </div>
+
+        <div className="w-full px-8 py-8">
 
           {/* Podium skeleton */}
           <div className="flex gap-4 mb-10 items-end">
