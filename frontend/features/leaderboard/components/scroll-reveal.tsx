@@ -1,33 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+/**
+ * features/leaderboard/components/scroll-reveal.tsx
+ * Re-exports the hook and provides two ready-made wrapper components.
+ */
 
-// ─── useScrollReveal — triggers animation when element enters viewport ─────────
+import React from "react";
+import { useScrollReveal } from "../hooks/use-scroll-reveal";
 
-export function useScrollReveal<T extends HTMLElement>(
-  threshold = 0.15
-): [React.RefObject<T | null>, boolean] {
-  const ref = useRef<T>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          obs.unobserve(el); // fire once
-        }
-      },
-      { threshold }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [threshold]);
-
-  return [ref, visible];
-}
+export { useScrollReveal };
 
 // ─── ScrollRevealDiv ──────────────────────────────────────────────────────────
 
@@ -50,8 +31,8 @@ export function ScrollRevealDiv({
       className={className}
       style={{
         ...style,
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(12px)",
+        opacity:    visible ? 1 : 0,
+        transform:  visible ? "translateY(0)" : "translateY(12px)",
         transition: `opacity 220ms cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 220ms cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
       }}
     >
@@ -84,8 +65,8 @@ export function ScrollRevealRow({
       className={className}
       style={{
         ...style,
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateX(0)" : "translateX(-8px)",
+        opacity:    visible ? 1 : 0,
+        transform:  visible ? "translateX(0)" : "translateX(-8px)",
         transition: `opacity 220ms cubic-bezier(0.16,1,0.3,1) ${delay}ms, transform 220ms cubic-bezier(0.16,1,0.3,1) ${delay}ms`,
       }}
     >

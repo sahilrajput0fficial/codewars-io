@@ -9,8 +9,6 @@ from modules.auth.dependencies import get_current_user
 from modules.auth.tables import User
 
 from .schemas import (
-    EloHistoryRequest,
-    EloHistoryResponse,
     LeaderboardGlobalRequest,
     LeaderboardListResponse,
     LeaderboardMeResponse,
@@ -20,7 +18,6 @@ from .schemas import (
 from .services import (
     get_global_leaderboard_service,
     get_leaderboard_me_service,
-    get_user_elo_history_service,
     get_user_rank_service,
 )
 
@@ -90,23 +87,3 @@ def get_user_rank(
 # ─────────────────────────────────────────────
 #  GET /leaderboard/users/{user_id}/elo-history
 # ─────────────────────────────────────────────
-
-@router.get(
-    "/users/{user_id}/elo-history",
-    response_model=EloHistoryResponse,
-    summary="ELO history for a user",
-)
-def get_user_elo_history(
-    user_id: uuid.UUID,
-    session: Annotated[Session, Depends(get_session)],
-    query: Annotated[EloHistoryRequest, Query()],
-):
-    """Return paginated ELO delta records for a specific user.
-
-    - **user_id** – UUID of the target user
-    - **sort_order** – `desc` = most recent first (default), `asc` = oldest first
-    - **limit** / **offset** – standard pagination
-    """
-    return get_user_elo_history_service(
-        session=session, user_id=user_id, query=query
-    )

@@ -3,7 +3,7 @@ import json
 import urllib.request
 import urllib.error
 from typing import Optional, Dict, Any
-from sqlmodel import Session, select, or_
+from sqlmodel import Session, select, or_, func
 from fastapi import HTTPException, status
 from security import hash_password, verify_password
 from config import Credentials
@@ -174,3 +174,4 @@ def exchange_supabase_token(session: Session, access_token: str) -> User:
         username=username,
         avatar_url=avatar_url
     )
+

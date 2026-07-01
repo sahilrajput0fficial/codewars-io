@@ -3,14 +3,8 @@ import uuid
 
 from fastapi import HTTPException, status
 from sqlmodel import Session, func, select
-
-from modules.auth.schemas import UserPublic
-from modules.auth.tables import EloHistory, User
-from core.schemas import ELOTiers , ELOThreshold
+from modules.auth.tables import  User
 from .schemas import (
-    EloHistoryEntry,
-    EloHistoryRequest,
-    EloHistoryResponse,
     LeaderboardEntry,
     LeaderboardGlobalRequest,
     LeaderboardListResponse,
@@ -18,7 +12,7 @@ from .schemas import (
     SortBy,
     UserRankResponse,
 )
-
+from core.utils import generate_hateoas_links
 
 # ─────────────────────────────────────────────
 #  Helpers
@@ -44,23 +38,11 @@ def _compute_rank(session: Session, user: User, sort_by: SortBy) -> int:
     return better_count + 1
 
 
-def _apply_sort_order(stmt, column, sort_order: str):
-    """Apply ascending or descending order to a SQLModel statement."""
-    if sort_order == "asc":
-        return stmt.order_by(column.asc())
-    return stmt.order_by(column.desc())
 
 
 
-def _get_elo_tiers(elo : int ) ->str:
-    if elo >= ELOThreshold.diamond:
-        return ELOTiers.diamond
-    elif elo>= ELOThreshold.gold:
-        return ELOTiers.gold
-    elif elo>= ELOThreshold.silver:
-        return ELOTiers.silver
-    else:
-        return ELOTiers.bronze
+
+
 
 
 # ─────────────────────────────────────────────
@@ -143,7 +125,7 @@ def get_global_leaderboard_service(
         total = session.exec(select(func.count()).select_from(User)
                     .where(User.username.ilike(f'%{query.q}%'))).one()
 
-    links = _generate_hateoas_links(total=total, limit=query.limit, offset=query.offset)
+    links = generate_hateoas_links(total=total, limit=query.limit, offset=query.offset)
 
     return LeaderboardListResponse(
         total=total,
@@ -156,88 +138,7 @@ def get_global_leaderboard_service(
     )
 
 
-def _generate_hateoas_links(total: int, limit: int, offset: int) -> list[dict]:
-    """Generate page navigation links following hypermedia/HATEOAS constraints.
 
-    Renders a standard page range: First Page, Previous Page, Adjacent Pages,
-    Ellipsis placeholders, Next Page, and Last Page.
-    """
-    links = []
-    total_pages = (total + limit - 1) // limit if total > 0 else 1
-    current_page = (offset // limit) + 1
-
-    # 1. Previous navigation link
-    if current_page > 1:
-        links.append({
-            "rel": "prev",
-            "label": "Previous",
-            "offset": max(0, offset - limit),
-            "is_active": False
-        })
-
-    # 2. Page Range buttons
-    if total_pages <= 5:
-        for p in range(1, total_pages + 1):
-            links.append({
-                "rel": "page",
-                "label": str(p),
-                "offset": (p - 1) * limit,
-                "is_active": (p == current_page)
-            })
-    else:
-        # First page
-        links.append({
-            "rel": "first",
-            "label": "1",
-            "offset": 0,
-            "is_active": (current_page == 1)
-        })
-
-        if current_page > 3:
-            links.append({
-                "rel": "ellipsis",
-                "label": "...",
-                "offset": None,
-                "is_active": False
-            })
-
-        start = max(2, current_page - 1)
-        end = min(total_pages - 1, current_page + 1)
-        for p in range(start, end + 1):
-            if p > 1 and p < total_pages:
-                links.append({
-                    "rel": "page",
-                    "label": str(p),
-                    "offset": (p - 1) * limit,
-                    "is_active": (p == current_page)
-                })
-
-        if current_page < total_pages - 2:
-            links.append({
-                "rel": "ellipsis",
-                "label": "...",
-                "offset": None,
-                "is_active": False
-            })
-
-        # Last page
-        links.append({
-            "rel": "last",
-            "label": str(total_pages),
-            "offset": (total_pages - 1) * limit,
-            "is_active": (current_page == total_pages)
-        })
-
-    # 3. Next navigation link
-    if current_page < total_pages:
-        links.append({
-            "rel": "next",
-            "label": "Next",
-            "offset": offset + limit,
-            "is_active": False
-        })
-
-    return links
 
 
 
@@ -266,43 +167,3 @@ def get_user_rank_service(
     rank = _compute_rank(session, user, sort_by)
     return UserRankResponse(**user.model_dump(), rank=rank)
 
-
-def get_user_elo_history_service(
-    session: Session,
-    user_id: uuid.UUID,
-    query: EloHistoryRequest,
-) -> EloHistoryResponse:
-    """Return paginated ELO history records for a specific user.
-
-    Records are ordered by *recorded_at* in the direction specified by
-    *query.sort_order* (default: desc = most recent first).
-    """
-    # Verify user exists
-    user: Optional[User] = session.get(User, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User with id '{user_id}' not found.",
-        )
-
-    # Total count for this user
-    total: int = session.exec(
-        select(func.count()).where(EloHistory.user_id == user_id)
-    ).one()
-
-    stmt = _apply_sort_order(
-        select(EloHistory).where(EloHistory.user_id == user_id),
-        EloHistory.recorded_at,
-        query.sort_order,
-    ).limit(query.limit).offset(query.offset)
-
-    records: list[EloHistory] = list(session.exec(stmt).all())
-    history = [EloHistoryEntry.model_validate(r) for r in records]
-
-    return EloHistoryResponse(
-        user_id=user_id,
-        total=total,
-        limit=query.limit,
-        offset=query.offset,
-        history=history,
-    )

@@ -7,12 +7,13 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SUPER_SECRET_KEY: str
     SUPABASE_ANON_KEY: str
+    SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None
     SUPABASE_URL: Optional[str] = None
     GCP_CLIENT_ID: Optional[str] = None
     GCP_ClIENT_SECRET: Optional[str] = None
     GITHUB_CLIENT_ID: Optional[str] = None
     GITHUB_CLIENT_SECERT: Optional[str] = None
-    FRONTEND_URL: str = "http://localhost:3000"
+    FRONTEND_URL: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

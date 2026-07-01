@@ -1,78 +1,27 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Suspense } from "react";
 import { Trophy } from "lucide-react";
 
-import { BASE_URL } from "@/proxy";
 import { getTier } from "@/constants/elo-tiers";
 import { Pagination, JumpToMeBar } from "./controls";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
-import { ScrollRevealDiv, ScrollRevealRow } from "@/features/leaderboard/scroll-reveal";
-import { LeaderboardHeader } from "@/features/leaderboard/leaderboard-header";
-import { FilterBar } from "@/features/leaderboard/filter-bar";
-import { AnimatedPodium } from "@/features/leaderboard/top-warrior-card";
-import type { LeaderboardEntry } from "@/features/leaderboard/types";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface HATEOASLink {
-  rel: string;
-  label: string;
-  offset: number | null;
-  is_active: boolean;
-}
-
-interface LeaderboardResponse {
-  total: number;
-  total_global: number;
-  limit: number;
-  offset: number;
-  sort_by: string;
-  entries: LeaderboardEntry[];
-  links: HATEOASLink[];
-}
-
-// ─── Data fetchers ────────────────────────────────────────────────────────────
-
-async function fetchLeaderboard(
-  sortBy: string,
-  limit: number,
-  offset: number,
-  q: string = ""
-): Promise<LeaderboardResponse | null> {
-  try {
-    const queryParam = q ? `&q=${encodeURIComponent(q)}` : "";
-    const res = await fetch(
-      `${BASE_URL}/leaderboard/?sort_by=${sortBy}&limit=${limit}&offset=${offset}&sort_order=desc${queryParam}`,
-      { next: { revalidate: 30 } }
-    );
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
-
-async function fetchTop3(sortBy: string): Promise<LeaderboardEntry[]> {
-  const data = await fetchLeaderboard(sortBy, 3, 0);
-  return data?.entries ?? [];
-}
-
-async function fetchMe(token: string): Promise<LeaderboardEntry | null> {
-  try {
-    const res = await fetch(`${BASE_URL}/leaderboard/me`, {
-      headers: { Cookie: `access_token=${token}` },
-      next: { revalidate: 0 },
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
+import {
+  ScrollRevealDiv,
+  ScrollRevealRow,
+  LeaderboardHeader,
+  FilterBar,
+  AnimatedPodium,
+  fetchLeaderboard,
+  fetchTop3,
+  fetchMe,
+} from "@/features/leaderboard";
+import type { LeaderboardEntry, LeaderboardResponse, HATEOASLink } from "@/features/leaderboard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
 
 function getInitials(username: string) {
   return username.slice(0, 2).toUpperCase();
@@ -154,6 +103,7 @@ function TableRow({
 
       {/* Col 2: Player name */}
       <td className="py-3.5 pr-4">
+        <Link href={`/u/${entry.username}`}>
         <div className="flex items-center gap-3 relative z-10">
           <Avatar user={entry} size="sm" />
           <div>
@@ -167,6 +117,7 @@ function TableRow({
             </p>
           </div>
         </div>
+        </Link>
       </td>
 
       {/* Col 3: Lokal Stats */}

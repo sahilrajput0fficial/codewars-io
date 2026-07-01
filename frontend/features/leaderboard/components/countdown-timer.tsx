@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * features/leaderboard/components/countdown-timer.tsx
+ * Ticks down to midnight — shows when the leaderboard resets.
+ * Moved to components/ per AGENTS.md feature structure.
+ */
+
 import { useEffect, useState } from "react";
 
 export function CountdownTimer() {
@@ -7,15 +13,13 @@ export function CountdownTimer() {
 
   useEffect(() => {
     const updateTimer = () => {
-      const now = new Date();
+      const now      = new Date();
       const midnight = new Date();
       midnight.setHours(24, 0, 0, 0);
-
-      const diff = midnight.getTime() - now.getTime();
-      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const diff    = midnight.getTime() - now.getTime();
+      const hours   = Math.floor((diff / (1000 * 60 * 60)) % 24);
       const minutes = Math.floor((diff / 1000 / 60) % 60);
       const seconds = Math.floor((diff / 1000) % 60);
-
       setTimeLeft({ hours, minutes, seconds });
     };
 
@@ -24,7 +28,7 @@ export function CountdownTimer() {
     return () => clearInterval(interval);
   }, []);
 
-  const formatNum = (n: number) => String(n).padStart(2, "0");
+  const fmt = (n: number) => String(n).padStart(2, "0");
 
   return (
     <div className="flex items-center gap-2 font-mono text-xs text-cw-text-secondary">
@@ -33,15 +37,15 @@ export function CountdownTimer() {
       </span>
       <div className="flex items-center gap-1">
         <span className="bg-cw-surface-2 border border-cw-border px-2 py-0.5 rounded text-cw-text-primary font-bold tabular-nums">
-          {formatNum(timeLeft.hours)}
+          {fmt(timeLeft.hours)}
         </span>
         <span className="text-cw-text-tertiary font-black animate-pulse">:</span>
         <span className="bg-cw-surface-2 border border-cw-border px-2 py-0.5 rounded text-cw-text-primary font-bold tabular-nums">
-          {formatNum(timeLeft.minutes)}
+          {fmt(timeLeft.minutes)}
         </span>
         <span className="text-cw-text-tertiary font-black animate-pulse">:</span>
         <span className="bg-cw-surface-2 border border-cw-border px-2 py-0.5 rounded text-cw-text-primary font-bold tabular-nums">
-          {formatNum(timeLeft.seconds)}
+          {fmt(timeLeft.seconds)}
         </span>
       </div>
     </div>

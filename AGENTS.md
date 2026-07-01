@@ -255,6 +255,18 @@ frontend/
 └── MODULES.md
 ```
 
+the feature folder speciifc struture should be 
+features/
+└── feature-name/
+    ├── components/
+    ├── hooks/
+    ├── services/
+    ├── utils/
+    ├── types.ts
+    ├── constants.ts
+    ├── index.ts
+    └── feature-name.tsx
+
 ## Component Rules
 
 - Build reusable components.

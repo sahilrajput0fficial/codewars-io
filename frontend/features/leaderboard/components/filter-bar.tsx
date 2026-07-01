@@ -1,62 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+/**
+ * features/leaderboard/components/filter-bar.tsx
+ * Search, sort tabs, timeframe tabs, queue selector, and "show my place" button.
+ * Updated to consume useLeaderboardFilter hook — per AGENTS.md hooks/ pattern.
+ */
+
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Search, ChevronDown } from "lucide-react";
-import { LeaderboardEntry } from "./types";
+import type { LeaderboardEntry } from "../types";
+import { SORT_OPTIONS, TIMEFRAME_OPTIONS, QUEUE_OPTIONS } from "../constants";
+import { useLeaderboardFilter } from "../hooks/use-leaderboard-filter";
 
 interface FilterBarProps {
   me: LeaderboardEntry | null;
 }
 
 export function FilterBar({ me }: FilterBarProps) {
-  const router = useRouter();
-  const pathname = usePathname();
+  const router       = useRouter();
+  const pathname     = usePathname();
   const searchParams = useSearchParams();
 
-  const currentSort = searchParams.get("sort_by") ?? "elo";
-  const currentQuery = searchParams.get("q") ?? "";
-
-  const [searchVal, setSearchVal] = useState(currentQuery);
-  const [timeframe, setTimeframe] = useState("Seasonal");
-  const [queue, setQueue] = useState("Ranked Solo");
-
-  useEffect(() => {
-    setSearchVal(currentQuery);
-  }, [currentQuery]);
-
-  useEffect(() => {
-    if (searchVal === currentQuery) return;
-    const delayDebounceFn = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (searchVal) {
-        params.set("q", searchVal);
-        params.set("offset", "0");
-      } else {
-        params.delete("q");
-      }
-      router.replace(`${pathname}?${params.toString()}`);
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchVal, currentQuery, pathname, router, searchParams]);
-
-  const handleSort = (sortVal: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("sort_by", sortVal);
-    params.set("offset", "0");
-    router.replace(`${pathname}?${params.toString()}`);
-  };
+  const {
+    searchVal, setSearchVal,
+    currentSort, handleSort,
+    timeframe, setTimeframe,
+    queue, setQueue,
+  } = useLeaderboardFilter();
 
   const handleShowMyPlace = () => {
     const myRow = document.getElementById("my-row");
     if (myRow) {
       myRow.scrollIntoView({ behavior: "smooth", block: "center" });
       myRow.style.backgroundColor = "rgba(224, 70, 70, 0.25)";
-      setTimeout(() => {
-        myRow.style.backgroundColor = "";
-      }, 1500);
-    } else if (me && me.rank) {
+      setTimeout(() => { myRow.style.backgroundColor = ""; }, 1500);
+    } else if (me?.rank) {
       const userOffset = Math.floor((me.rank - 1) / 10) * 10;
       const params = new URLSearchParams();
       params.set("offset", String(userOffset));
@@ -67,15 +45,11 @@ export function FilterBar({ me }: FilterBarProps) {
 
   return (
     <div className="flex flex-col gap-3 mb-6 lg:flex-row lg:items-center lg:justify-between">
-      {/* Left: Grouped selectors */}
+      {/* Left: Sort + Timeframe tabs */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Sort Tabs */}
+        {/* Sort tabs */}
         <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-cw-surface-2 border border-cw-border">
-          {[
-            { label: "Rank", value: "elo" },
-            { label: "Win Rate", value: "wins" },
-            { label: "KDA", value: "matches_played" },
-          ].map((tab) => {
+          {SORT_OPTIONS.map((tab) => {
             const active = currentSort === tab.value;
             return (
               <button
@@ -93,9 +67,9 @@ export function FilterBar({ me }: FilterBarProps) {
           })}
         </div>
 
-        {/* Timeframe Tabs */}
+        {/* Timeframe tabs */}
         <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-cw-surface-2 border border-cw-border">
-          {["24h", "7D", "30D", "Seasonal"].map((tf) => (
+          {TIMEFRAME_OPTIONS.map((tf) => (
             <button
               key={tf}
               onClick={() => setTimeframe(tf)}
@@ -111,7 +85,7 @@ export function FilterBar({ me }: FilterBarProps) {
         </div>
       </div>
 
-      {/* Right side options */}
+      {/* Right: Search + Queue + Show my place */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-44">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cw-text-secondary" />
@@ -130,9 +104,7 @@ export function FilterBar({ me }: FilterBarProps) {
             onChange={(e) => setQueue(e.target.value)}
             className="appearance-none pr-7 pl-3 h-8 text-xs font-semibold rounded-lg bg-cw-surface border border-cw-border text-cw-text-primary focus:outline-none focus:border-cw-accent cursor-pointer"
           >
-            <option>Ranked Solo</option>
-            <option>Ranked Duo</option>
-            <option>Custom Arena</option>
+            {QUEUE_OPTIONS.map((q) => <option key={q}>{q}</option>)}
           </select>
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-cw-text-secondary pointer-events-none" />
         </div>
@@ -149,3 +121,6 @@ export function FilterBar({ me }: FilterBarProps) {
     </div>
   );
 }
+
+// Suppress searchParams unused-var — it's accessed via useLeaderboardFilter internally
+void useSearchParams;

@@ -49,7 +49,7 @@ const SECTIONS: NavSection[] = [
   {
     title: "Account",
     items: [
-      { label: "Profile",     href: "/profile",     icon: User },
+      { label: "Profile",     href: "/u/me",     icon: User },
       { label: "Settings",    href: "/settings",    icon: Settings },
     ]
   },

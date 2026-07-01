@@ -2,13 +2,16 @@ from datetime import timedelta
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, status, Response, HTTPException
 from core.security import verify_jwt , create_jwt
-from sqlmodel import Session, select
+from sqlmodel import Session
 from db.session import get_session
 from config import Credentials
 from .schemas import UserLoginRequest, UserSignupRequest, ForgetPasswordSchema, OAuthExchangeRequest
 from .tables import User
 from .services import user_signup, user_login, user_forget_password, exchange_supabase_token
 from .dependencies import get_current_user
+
+
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 def _set_jwt_cookie(response: Response, email: str) -> None:

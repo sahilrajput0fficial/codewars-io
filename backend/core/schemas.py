@@ -32,3 +32,12 @@ class ELOThreshold(Enum):
     gold = 1500
     silver = 1000
     bronze = 0
+
+
+class MatchLevel(Enum):
+    easy = "easy"
+    medium = "medium"
+    difficult = "difficult"
+    extreme = "extreme"
+    impossible = "impossible"
+    custom = "custom"
