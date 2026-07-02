@@ -49,7 +49,6 @@ import { useEditProfile }         from "./hooks/use-edit-profile";
 import { EditProfileDrawer }      from "./components/edit-profile-drawer";
 import { Avatar }                 from "./components/avatar";
 import { LiveDot }                from "./components/live-dot";
-import { WinRatioRing }           from "./components/win-ratio-ring";
 import { StatChip }               from "./components/stat-chip";
 import { MatchRow }               from "./components/match-row";
 import { SectionCard }            from "./components/section-card";
@@ -231,7 +230,7 @@ export default function ProfilePage({
             {/* Name, tier, join date */}
             <div className="flex-1 min-w-0 pb-1">
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl font-black text-cw-text-primary leading-tight">
+                <h1 className="text-3xl font-black text-cw-text-primary leading-tight">
                   {user.display_name}
                 </h1>
                 {user.is_online && !user.hide_online_status && (
@@ -253,7 +252,7 @@ export default function ProfilePage({
                   {tier.label}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-cw-text-tertiary font-medium">
+              <p className="mt-1.5 text-sm text-cw-text-tertiary font-medium">
                 @{user.username} · Joined {formatJoinDate(user.joined_at)}
               </p>
             </div>
@@ -290,7 +289,7 @@ export default function ProfilePage({
           </div>
 
           {/* Bio */}
-          <p className="mt-3 text-sm max-w-lg" style={{ color: "var(--color-text-secondary)" }}>
+          <p className="mt-3 text-base max-w-lg" style={{ color: "var(--color-text-secondary)" }}>
             {user.bio}
           </p>
         </div>
@@ -321,7 +320,7 @@ export default function ProfilePage({
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className="pb-2.5 text-xs font-semibold uppercase tracking-widest transition-colors duration-fast ease-snap"
+                    className="pb-2.5 text-sm font-semibold uppercase tracking-widest transition-colors duration-fast ease-snap"
                     style={{
                       color:        tab === activeTab ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
                       borderBottom: tab === activeTab ? "2px solid var(--color-accent)"    : "2px solid transparent",
@@ -348,8 +347,8 @@ export default function ProfilePage({
                   <div className="py-12 flex flex-col items-center justify-center text-center gap-3 border border-dashed border-cw-border rounded-lg bg-cw-surface-2 animate-rise-in">
                     <Swords className="w-8 h-8 text-cw-text-tertiary" />
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs font-bold text-cw-text-primary">No Battles Fought Yet</span>
-                      <span className="text-[10px] text-cw-text-tertiary max-w-[240px]">
+                      <span className="text-sm font-bold text-cw-text-primary">No Battles Fought Yet</span>
+                      <span className="text-xs text-cw-text-tertiary max-w-[240px]">
                         Step into the arena, prove your skills in DSA battles, and climb the ELO ladder.
                       </span>
                     </div>
@@ -385,8 +384,8 @@ export default function ProfilePage({
                       style={{ animationDelay: `${i * 50}ms` }}
                     >
                       <span className="text-2xl">{ach.icon}</span>
-                      <span className="text-[11px] font-bold text-cw-text-primary leading-tight">{ach.label}</span>
-                      <span className="text-[10px] text-cw-text-tertiary leading-tight">{ach.description}</span>
+                      <span className="text-sm font-bold text-cw-text-primary leading-tight">{ach.label}</span>
+                      <span className="text-xs text-cw-text-tertiary leading-tight">{ach.description}</span>
                     </div>
                   ))}
                 </div>
@@ -396,65 +395,19 @@ export default function ProfilePage({
 
           {/* ── RIGHT: Competitive Stats ── */}
           <div className="flex flex-col gap-6">
-            {/* Competitive Overview */}
-            <SectionCard title="Competitive Overview" icon={Target}>
-              <div className="flex items-center gap-4 mb-4">
-                <WinRatioRing wins={user.wins} losses={user.losses} />
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: "var(--color-success)" }} />
-                    <span className="text-xs text-cw-text-secondary">
-                      Wins — <span className="font-mono font-bold text-cw-text-primary">{user.wins}</span>
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: "var(--color-danger)", opacity: 0.6 }} />
-                    <span className="text-xs text-cw-text-secondary">
-                      Losses — <span className="font-mono font-bold text-cw-text-primary">{user.losses}</span>
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Trophy className="w-3.5 h-3.5" style={{ color: tier.colorVar }} />
-                    <span className="text-xs font-bold uppercase tracking-wider" style={{ color: tier.colorVar }}>
-                      {tier.label}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* W/L record pill — angular */}
-              <div
-                className="flex items-center justify-between px-4 py-2.5 rounded"
-                style={{ background: "var(--color-surface-2)", clipPath: "polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%)" }}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-black text-cw-text-primary tabular-nums">{user.wins}W</span>
-                  <span className="text-cw-text-tertiary text-xs">/</span>
-                  <span className="font-mono text-sm font-black text-cw-text-secondary tabular-nums">{user.losses}L</span>
-                </div>
-                <span className="font-mono text-xs font-bold tabular-nums" style={{ color: "var(--color-success)" }}>
-                  {wr}% WR
-                </span>
-              </div>
-            </SectionCard>
-
             {/* Performance Stats */}
             <SectionCard title="Performance" icon={TrendingUp}>
               <div className="flex flex-col gap-3">
                 {[
-                  { icon: Star,  label: "ELO Rating",     value: user.elo.toLocaleString(), color: tier.colorVar },
-                  { icon: Trophy, label: "Global Rank",   value: `#${user.rank}`,           color: "var(--color-text-primary)" },
-                  { icon: Clock,  label: "Avg Solve Time",value: formatDuration(user.avg_solve_time_ms), color: "var(--color-text-primary)" },
                   { icon: Zap,    label: "Problems Solved",value: String(user.problems_solved), color: "var(--color-text-primary)" },
                   { icon: Flame,  label: "Best Streak",   value: `${user.longest_win_streak} W`, color: "var(--color-text-primary)" },
-                  { icon: Flame,  label: "Current Streak",value: `${user.current_streak} W 🔥`, color: "var(--color-warning)" },
                 ].map(({ icon: Icon, label, value, color }) => (
                   <div key={label} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Icon className="w-3.5 h-3.5 text-cw-text-tertiary" />
-                      <span className="text-xs text-cw-text-secondary">{label}</span>
+                      <Icon className="w-4 h-4 text-cw-text-tertiary" />
+                      <span className="text-sm text-cw-text-secondary">{label}</span>
                     </div>
-                    <span className="font-mono text-sm font-bold tabular-nums" style={{ color }}>
+                    <span className="font-mono text-base font-bold tabular-nums" style={{ color }}>
                       {value}
                     </span>
                   </div>
@@ -476,8 +429,8 @@ export default function ProfilePage({
                   return (
                     <div key={label}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold" style={{ color }}>{label}</span>
-                        <span className="font-mono text-xs text-cw-text-secondary tabular-nums">{w}/{total} · {pct}%</span>
+                        <span className="text-sm font-bold" style={{ color }}>{label}</span>
+                        <span className="font-mono text-sm text-cw-text-secondary tabular-nums">{w}/{total} · {pct}%</span>
                       </div>
                       <div className="w-full h-1.5 bg-cw-surface-2 rounded-full overflow-hidden">
                         <div

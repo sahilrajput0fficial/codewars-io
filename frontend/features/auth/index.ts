@@ -25,7 +25,6 @@ export { useEditProfile } from "./hooks/use-edit-profile";
 // Components
 export { Avatar }              from "./components/avatar";
 export { LiveDot }             from "./components/live-dot";
-export { WinRatioRing }        from "./components/win-ratio-ring";
 export { StatChip }            from "./components/stat-chip";
 export { DifficultyLabel }     from "./components/difficulty-label";
 export { MatchRow }            from "./components/match-row";

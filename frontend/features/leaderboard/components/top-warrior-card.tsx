@@ -56,13 +56,13 @@ export function TopWarriorCard({
         {/* Header: Position + Avatar + Name + Trophy */}
         <div className="flex items-center gap-3">
           <span
-            className="font-mono text-xl font-black leading-none tabular-nums w-5 flex-shrink-0 opacity-80"
+            className="font-mono text-2xl font-black leading-none tabular-nums w-6 flex-shrink-0 opacity-80"
             style={{ color: trophyColor }}
           >
             {position}
           </span>
 
-          <div className="relative w-10 h-10 rounded-full overflow-hidden border border-cw-border bg-cw-surface-2 flex-shrink-0 flex items-center justify-center font-bold text-sm text-cw-text-secondary">
+          <div className="relative w-12 h-12 rounded-full overflow-hidden border border-cw-border bg-cw-surface-2 flex-shrink-0 flex items-center justify-center font-bold text-base text-cw-text-secondary">
             {user.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={user.avatar_url} alt={user.username} className="w-full h-full object-cover" />
@@ -72,30 +72,30 @@ export function TopWarriorCard({
           </div>
 
           <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-cw-text-primary text-sm truncate leading-tight">
+            <h3 className="font-bold text-cw-text-primary text-base truncate leading-tight">
               {user.username}
             </h3>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: trophyColor }} />
-              <span className="text-[10px] font-medium text-cw-text-tertiary uppercase tracking-wider">
+              <span className="text-xs font-medium text-cw-text-tertiary uppercase tracking-wider">
                 {tier.label}
               </span>
             </div>
           </div>
 
-          <Trophy className="w-3.5 h-3.5 flex-shrink-0 opacity-40" style={{ color: trophyColor }} />
+          <Trophy className="w-4 h-4 flex-shrink-0 opacity-40" style={{ color: trophyColor }} />
         </div>
 
         {/* Stat strip */}
         <div className="grid grid-cols-3 border-t border-cw-border pt-3">
           <div className="pr-3">
-            <div className="text-[9px] font-semibold uppercase tracking-widest text-cw-text-tertiary mb-1">W&nbsp;/&nbsp;L</div>
-            <div className="font-mono text-xs font-bold text-cw-text-primary tabular-nums">{user.wins}&nbsp;–&nbsp;{user.losses}</div>
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-cw-text-secondary mb-1">W&nbsp;/&nbsp;L</div>
+            <div className="font-mono text-sm font-bold text-cw-text-primary tabular-nums">{user.wins}&nbsp;–&nbsp;{user.losses}</div>
           </div>
 
           <div className="px-3 border-x border-cw-border">
-            <div className="text-[9px] font-semibold uppercase tracking-widest text-cw-text-tertiary mb-1">Winrate</div>
-            <div className="font-mono text-xs font-bold text-cw-text-primary tabular-nums">{wr}</div>
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-cw-text-secondary mb-1">Winrate</div>
+            <div className="font-mono text-sm font-bold text-cw-text-primary tabular-nums">{wr}</div>
             <div className="w-full h-[2px] bg-cw-surface-2 rounded-full mt-1.5 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-700"
@@ -105,8 +105,8 @@ export function TopWarriorCard({
           </div>
 
           <div className="pl-3">
-            <div className="text-[9px] font-semibold uppercase tracking-widest text-cw-text-tertiary mb-1">ELO</div>
-            <div className="font-mono text-xs font-black tabular-nums" style={{ color: trophyColor }}>
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-cw-text-secondary mb-1">ELO</div>
+            <div className="font-mono text-sm font-black tabular-nums" style={{ color: trophyColor }}>
               {user.elo.toLocaleString()}
             </div>
           </div>

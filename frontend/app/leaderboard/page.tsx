@@ -90,27 +90,27 @@ function TableRow({
       delay={index * 30}
     >
       {/* Col 1: Place */}
-      <td className="py-3.5 pl-4 pr-3 w-16 relative">
+      <td className="py-4 pl-4 pr-3 w-16 relative">
         <div
           className="absolute left-0 top-0 bottom-0 w-0 group-hover:w-1 transition-[width] duration-fast ease-snap bg-cw-accent"
         />
         <span
-          className="font-mono text-sm font-bold tabular-nums relative z-10 text-cw-text-secondary"
+          className="font-mono text-base font-bold tabular-nums relative z-10 text-cw-text-secondary"
         >
           {entry.rank}
         </span>
       </td>
 
       {/* Col 2: Player name */}
-      <td className="py-3.5 pr-4">
+      <td className="py-4 pr-4">
         <Link href={`/u/${entry.username}`}>
         <div className="flex items-center gap-3 relative z-10">
-          <Avatar user={entry} size="sm" />
+          <Avatar user={entry} size="md" />
           <div>
-            <p className="text-sm font-bold flex items-center gap-1.5 leading-tight text-cw-text-primary">
+            <p className="text-base font-bold flex items-center gap-1.5 leading-tight text-cw-text-primary">
               {entry.username}
               {isMe && (
-                <span className="text-[9px] font-black px-1.5 py-0.5 tracking-widest rounded bg-cw-accent  border border-accent/30 text-white">
+                <span className="text-[10px] font-black px-1.5 py-0.5 tracking-widest rounded bg-cw-accent border border-accent/30 text-white">
                   YOU
                 </span>
               )}
@@ -121,16 +121,16 @@ function TableRow({
       </td>
 
       {/* Col 3: Lokal Stats */}
-      <td className="py-3.5 pr-4 text-left">
-        <span className="font-mono text-sm font-bold text-cw-text-secondary tabular-nums relative z-10">
+      <td className="py-4 pr-4 text-left">
+        <span className="font-mono text-base font-bold text-cw-text-secondary tabular-nums relative z-10">
           {entry.wins} - {entry.losses}
         </span>
       </td>
 
       {/* Col 4: Winrate */}
-      <td className="py-3.5 pr-4 text-left w-32">
+      <td className="py-4 pr-4 text-left w-32">
         <div className="flex flex-col gap-1 relative z-10">
-          <span className="font-mono text-sm font-bold text-cw-text-primary tabular-nums">
+          <span className="font-mono text-base font-bold text-cw-text-primary tabular-nums">
             {wr}
           </span>
           <div className="w-20 h-1 bg-cw-surface-2 rounded-full overflow-hidden">
@@ -145,30 +145,29 @@ function TableRow({
         </div>
       </td>
 
-      {/* Col 5: ELO Rating */}
-      <td className="py-3.5 pr-4 text-left">
+      {/* Col 5: ELO Rating (Highlighted Column) */}
+      <td className="py-4 text-center" style={{ background: "rgba(224,70,70,0.18)" }}>
         <span
-          className="font-mono text-sm font-black tabular-nums relative z-10"
-          style={{ color: tier.colorVar }}
+          className="font-mono text-lg font-black tabular-nums"
         >
           {entry.elo.toLocaleString()}
         </span>
       </td>
 
       {/* Col 6: Rank (Tier) */}
-      <td className="py-3.5 pr-4 text-left">
-        <div className="flex items-center gap-2 relative z-10">
+      <td className="py-4 px-4 text-center">
+        <div className="inline-flex items-center gap-2">
           <div
-            className="w-4 h-4 rounded-full flex items-center justify-center border"
+            className="w-5 h-5 rounded-full flex items-center justify-center border flex-shrink-0"
             style={{
               borderColor: tier.colorVar,
-              background: `${tier.colorVar}11`,
+              background: `${tier.colorVar}22`,
             }}
           >
-            <Trophy className="w-2.5 h-2.5" style={{ color: tier.colorVar }} />
+            <Trophy className="w-3 h-3" style={{ color: tier.colorVar }} />
           </div>
           <span
-            className="text-xs font-bold uppercase tracking-wider"
+            className="text-sm font-bold uppercase tracking-widest"
             style={{ color: tier.colorVar }}
           >
             {tier.label}
@@ -251,29 +250,29 @@ export default async function LeaderboardPage({
             >
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b border-cw-border bg-cw-surface-2">
-                    <th className="py-3.5 pl-4 pr-3 text-left text-[10px] font-black tracking-widest uppercase text-cw-text-tertiary w-16">
+                  <tr className="border-b border-cw-border bg-cw-accent-muted/30">
+                    <th className="py-4 pl-4 pr-3 text-left text-xs font-black tracking-widest uppercase text-cw-text-secondary w-16">
                       Place
                     </th>
-                    <th className="py-3.5 pr-4 text-left text-[10px] font-black tracking-widest uppercase text-cw-text-tertiary">
+                    <th className="py-4 pr-4 text-left text-xs font-black tracking-widest uppercase text-cw-text-secondary">
                       Player name
                     </th>
-                    <th className="py-3.5 pr-4 text-left text-[10px] font-black tracking-widest uppercase text-cw-text-tertiary">
+                    <th className="py-4 pr-4 text-left text-xs font-black tracking-widest uppercase text-cw-text-secondary">
                       Local stats
                     </th>
-                    <th className="py-3.5 pr-4 text-left text-[10px] font-black tracking-widest uppercase text-cw-text-tertiary w-32">
+                    <th className="py-4 pr-4 text-left text-xs font-black tracking-widest uppercase text-cw-text-secondary w-32">
                       Winrate
                     </th>
-                    <th className="py-3.5 pr-4 text-left text-[10px] font-black tracking-widest uppercase text-cw-text-tertiary">
+                    <th className="py-4 text-center text-xs font-black tracking-widest uppercase text-cw-text-on-accent bg-cw-accent w-36">
                       ELO
                     </th>
-                    <th className="py-3.5 pr-4 text-left text-[10px] font-black tracking-widest uppercase text-cw-text-tertiary">
+                    <th className="py-4 px-4 text-center text-xs font-black tracking-widest uppercase text-cw-text-secondary">
                       Tier
                     </th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-cw-border bg-cw-surface/40">
+                <tbody className="divide-cw-border bg-cw-surface/40">
                   {entries.map((entry, i) => (
                     <TableRow
                       key={entry.id}

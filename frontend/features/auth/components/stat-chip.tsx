@@ -33,7 +33,7 @@ export function StatChip({
             return (
               <span
                 key={i}
-                className="font-mono text-lg font-black tracking-tight tabular-nums"
+                className="font-mono text-xl font-black tracking-tight tabular-nums"
                 style={{ color: accent ? "var(--color-accent)" : "var(--color-text-primary)" }}
               >
                 {part}
@@ -57,7 +57,7 @@ export function StatChip({
         })}
       </div>
       
-      <span className="text-[9px] font-black uppercase tracking-widest text-cw-text-tertiary">
+      <span className="text-[10px] font-black uppercase tracking-widest text-cw-text-secondary">
         {label}
       </span>
     </div>

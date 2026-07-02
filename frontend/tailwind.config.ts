@@ -13,8 +13,9 @@ export default {
     extend: {
       // ── DESIGN.md §6 — typography ──────────────────────────────────────
       fontFamily: {
-        sans: ["var(--font-inter)", "Arial", "sans-serif"],
+        sans: ["var(--font-poppins)", "Arial", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "Courier New", "monospace"],
+        poppins: ["var(--font-poppins)", "Arial", "sans-serif"],
       },
 
       colors: {

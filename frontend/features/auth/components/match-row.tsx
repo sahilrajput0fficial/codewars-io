@@ -40,18 +40,18 @@ export function MatchRow({ match, index }: { match: RecentMatch; index: number }
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Link href={`/u/${match.opponent_username}`}>
-            <span className="text-sm font-bold text-cw-text-primary truncate">
-              {match.opponent_username}
-            </span>
-          </Link>
-          <span className="font-mono text-xs font-bold tabular-nums" style={{ color: opponentTier.colorVar }}>
+            <Link href={`/u/${match.opponent_username}`}>
+              <span className="text-base font-bold text-cw-text-primary truncate">
+                {match.opponent_username}
+              </span>
+            </Link>
+            <span className="font-mono text-sm font-bold tabular-nums" style={{ color: opponentTier.colorVar }}>
             {match.opponent_elo}
           </span>
         </div>
         <div className="flex items-center gap-2 mt-0.5">
           <DifficultyLabel difficulty={match.problem_difficulty} />
-          <span className="text-[10px] text-cw-text-tertiary truncate max-w-[140px]">
+          <span className="text-xs text-cw-text-tertiary truncate max-w-[140px]">
             {match.problem_title}
           </span>
         </div>
@@ -59,13 +59,13 @@ export function MatchRow({ match, index }: { match: RecentMatch; index: number }
 
       <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
         <span
-          className="font-mono text-sm font-black tabular-nums"
+          className="font-mono text-base font-black tabular-nums"
           style={{ color: isWin ? "var(--color-success)" : "var(--color-danger)" }}
         >
           {isWin ? "+" : ""}{match.elo_delta}
         </span>
         <span
-          className="text-[10px] text-cw-text-tertiary font-mono"
+          className="text-xs text-cw-text-tertiary font-mono"
           suppressHydrationWarning
         >
           {formatRelativeTime(match.solved_at)}
