@@ -3,110 +3,162 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, AlertCircle, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  loginUser, 
-  signupUser, 
-  forgetPassword, 
-  loginWithGoogle, 
-  loginWithGithub 
+import {
+  loginUser,
+  signupUser,
+  forgetPassword,
+  loginWithGoogle,
+  loginWithGithub,
 } from "./functions";
 
 type AuthMode = "login" | "signup" | "forget-password";
 
+/* ── inline SVG icons ───────────────────────────────────────────────────────── */
+function GithubIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z" />
+    </svg>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+    </svg>
+  );
+}
+
+/* ── field label ────────────────────────────────────────────────────────────── */
+function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="block text-xs font-medium mb-1.5"
+      style={{ color: "var(--color-text-secondary)" }}
+    >
+      {children}
+    </label>
+  );
+}
+
+/* ── styled input ───────────────────────────────────────────────────────────── */
+function AuthInput({
+  id, type = "text", placeholder, value, onChange, disabled, required,
+}: {
+  id: string; type?: string; placeholder?: string;
+  value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled?: boolean; required?: boolean;
+}) {
+  return (
+    <input
+      id={id} type={type} placeholder={placeholder}
+      value={value} onChange={onChange} disabled={disabled} required={required}
+      className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+      style={{
+        background: "var(--color-surface-2)",
+        border: "1px solid var(--color-border)",
+        color: "var(--color-text-primary)",
+        transition: "border-color 150ms",
+      }}
+      onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-accent)"; }}
+      onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-border)"; }}
+    />
+  );
+}
+
+/* ── password input with toggle ─────────────────────────────────────────────── */
+function PasswordInput({
+  id, placeholder = "••••••••", value, onChange, disabled, required, show, onToggle,
+}: {
+  id: string; placeholder?: string; value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled?: boolean; required?: boolean; show: boolean; onToggle: () => void;
+}) {
+  return (
+    <div className="relative">
+      <input
+        id={id} type={show ? "text" : "password"} placeholder={placeholder}
+        value={value} onChange={onChange} disabled={disabled} required={required}
+        className="w-full px-3 py-2.5 pr-10 rounded-lg text-sm outline-none"
+        style={{
+          background: "var(--color-surface-2)",
+          border: "1px solid var(--color-border)",
+          color: "var(--color-text-primary)",
+          transition: "border-color 150ms",
+        }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-accent)"; }}
+        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--color-border)"; }}
+      />
+      <button
+        type="button" tabIndex={-1} onClick={onToggle}
+        className="absolute right-3 top-1/2 -translate-y-1/2"
+        style={{ color: "var(--color-text-tertiary)" }}
+      >
+        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+    </div>
+  );
+}
+
+/* ── main form component ────────────────────────────────────────────────────── */
 function AuthFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [authMode, setAuthMode] = useState<AuthMode>("login");
 
-  // Form states
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [agreePolicy, setAgreePolicy] = useState(false);
-
-  // UI state
   const [showPassword, setShowPassword] = useState(false);
-  const [showRepeatPassword, setShowRepeatPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const errorParam = searchParams.get("error");
-    if (errorParam) {
-      setError(decodeURIComponent(errorParam));
-    }
+    const mode = searchParams.get("mode");
+    if (mode === "signup") setAuthMode("signup");
+    else if (mode === "forget-password") setAuthMode("forget-password");
+    else setAuthMode("login");
   }, [searchParams]);
 
   const clearForm = () => {
-    setUsername("");
-    setEmail("");
-    setPassword("");
-    setRepeatPassword("");
-    setNewPassword("");
-    setAgreePolicy(false);
-    setError(null);
-    setSuccess(null);
+    setUsername(""); setEmail(""); setPassword("");
+    setRepeatPassword(""); setNewPassword(""); setAgreePolicy(false);
+    setError(null); setSuccess(null);
   };
 
-  const handleModeChange = (mode: AuthMode) => {
-    clearForm();
-    setAuthMode(mode);
-  };
+  const handleModeChange = (mode: AuthMode) => { clearForm(); setAuthMode(mode); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
-
+    setError(null); setSuccess(null); setLoading(true);
     try {
       if (authMode === "login") {
-        if (!email || !password) {
-          throw new Error("Please enter both email and password.");
-        }
-        // backend login accepts username or email in payload.username
+        if (!email || !password) throw new Error("Please enter email and password.");
         const res = await loginUser({ username: email, password });
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.detail || "Incorrect credentials");
-        }
+        if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Incorrect credentials"); }
         router.push("/dashboard");
       } else if (authMode === "signup") {
-        if (!email || !password || !repeatPassword) {
-          throw new Error("All fields are required.");
-        }
-        if (password !== repeatPassword) {
-          throw new Error("Passwords do not match.");
-        }
-        if (!agreePolicy) {
-          throw new Error("You must agree to the privacy policy.");
-        }
-        // Generate a username from email if not present
-        const generatedUsername = email.split("@")[0];
-        const res = await signupUser({ username: generatedUsername, email, password });
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.detail || "Signup failed");
-        }
-        setSuccess("Account created successfully!");
+        if (!email || !password || !repeatPassword) throw new Error("All fields are required.");
+        if (password !== repeatPassword) throw new Error("Passwords do not match.");
+        if (!agreePolicy) throw new Error("You must agree to the privacy policy.");
+        const res = await signupUser({ username: email.split("@")[0], email, password });
+        if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Signup failed"); }
+        setSuccess("Account created! Redirecting…");
         setTimeout(() => router.push("/dashboard"), 1200);
-      } else if (authMode === "forget-password") {
-        if (!username || !email || !newPassword) {
-          throw new Error("All fields are required.");
-        }
+      } else {
+        if (!username || !email || !newPassword) throw new Error("All fields are required.");
         const res = await forgetPassword({ username, email, new_password: newPassword });
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.detail || "Reset request failed");
-        }
-        setSuccess("Password updated successfully!");
+        if (!res.ok) { const d = await res.json(); throw new Error(d.detail || "Reset failed"); }
+        setSuccess("Password updated! Redirecting…");
         setTimeout(() => router.push("/dashboard"), 1200);
       }
     } catch (err: any) {
@@ -119,304 +171,512 @@ function AuthFormContent() {
   const handleOAuth = async (provider: "google" | "github") => {
     setError(null);
     try {
-      const { error: oAuthError } = provider === "google" ? await loginWithGoogle() : await loginWithGithub();
-      if (oAuthError) throw oAuthError;
+      const { error: e } = provider === "google" ? await loginWithGoogle() : await loginWithGithub();
+      if (e) throw e;
     } catch (err: any) {
       setError(err.message || "Social login failed");
     }
   };
 
+  const title: Record<AuthMode, string> = {
+    login: "Welcome back",
+    signup: "Create account",
+    "forget-password": "Reset password",
+  };
+  const subtitle: Record<AuthMode, string> = {
+    login: "Sign in to continue",
+    signup: "Join the ranked arena",
+    "forget-password": "We'll update your credentials",
+  };
+
   return (
-    <div className="w-full space-y-6">
-      {/* Header text */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-extrabold text-neutral-100 tracking-tight">
-          {authMode === "login" && "Welcome Back"}
-          {authMode === "signup" && "Get Started Now"}
-          {authMode === "forget-password" && "Reset Password"}
-        </h1>
-        <p className="text-neutral-400 text-xs leading-relaxed max-w-sm">
-          {authMode === "login" && "Welcome back! Enter your email below to login to your account."}
-          {authMode === "signup" && "Welcome in our service, create account to start your experience."}
-          {authMode === "forget-password" && "Confirm your account details to set a new password."}
+    /* ── root: lock to 100vh, no overflow whatsoever ── */
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        display: "flex",
+        background: "var(--color-bg)",
+        overflow: "hidden",
+      }}
+    >
+      {/* ────────── LEFT — form panel ────────── */}
+      <div
+        style={{
+          width: "50%",
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          padding: "0 64px",
+          borderRight: "1px solid var(--color-border)",
+          overflowY: "auto",
+        }}
+      >
+        {/* logo */}
+        <div style={{ marginBottom: "36px" }}>
+          <span
+            style={{
+              fontFamily: "var(--font-inter)",
+              fontWeight: 700,
+              fontSize: "18px",
+              color: "var(--color-text-primary)",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Code<span style={{ color: "var(--color-accent)" }}>Wars</span>
+            <span style={{ color: "var(--color-accent)" }}>.</span>IO
+          </span>
+        </div>
+
+        {/* heading */}
+        <div style={{ marginBottom: "24px" }}>
+          <h1
+            style={{
+              fontFamily: "var(--font-inter)",
+              fontWeight: 700,
+              fontSize: "22px",
+              color: "var(--color-text-primary)",
+              marginBottom: "4px",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {title[authMode]}
+          </h1>
+          <p style={{ fontSize: "13px", color: "var(--color-text-secondary)" }}>
+            {subtitle[authMode]}
+          </p>
+        </div>
+
+        {/* OAuth */}
+        {authMode !== "forget-password" && (
+          <>
+            <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+              {(["github", "google"] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => handleOAuth(p)}
+                  disabled={loading}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "7px",
+                    padding: "10px",
+                    borderRadius: "8px",
+                    background: "var(--color-surface-2)",
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-text-secondary)",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    transition: "border-color 150ms, color 150ms",
+                  }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.borderColor = "var(--color-text-tertiary)";
+                    el.style.color = "var(--color-text-primary)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.borderColor = "var(--color-border)";
+                    el.style.color = "var(--color-text-secondary)";
+                  }}
+                >
+                  {p === "github" ? <GithubIcon /> : <GoogleIcon />}
+                  <span style={{ textTransform: "capitalize" }}>{p}</span>
+                </button>
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                marginBottom: "20px",
+              }}
+            >
+              <div style={{ flex: 1, height: "1px", background: "var(--color-border)" }} />
+              <span style={{ fontSize: "11px", color: "var(--color-text-tertiary)" }}>
+                or continue with email
+              </span>
+              <div style={{ flex: 1, height: "1px", background: "var(--color-border)" }} />
+            </div>
+          </>
+        )}
+
+        {/* alerts */}
+        {error && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "8px",
+              padding: "10px 12px",
+              borderRadius: "8px",
+              background: "var(--color-accent-muted)",
+              border: "1px solid var(--color-accent)",
+              color: "var(--color-accent)",
+              fontSize: "13px",
+              marginBottom: "16px",
+              animation: "rise-in 220ms cubic-bezier(0.16,1,0.3,1)",
+            }}
+          >
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+        {success && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "8px",
+              padding: "10px 12px",
+              borderRadius: "8px",
+              border: "1px solid var(--color-success)",
+              color: "var(--color-success)",
+              fontSize: "13px",
+              marginBottom: "16px",
+              animation: "rise-in 220ms cubic-bezier(0.16,1,0.3,1)",
+            }}
+          >
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>{success}</span>
+          </div>
+        )}
+
+        {/* form */}
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+          {/* email */}
+          <div>
+            <FieldLabel htmlFor="email">Email address</FieldLabel>
+            <AuthInput
+              id="email" type="email" placeholder="you@example.com"
+              value={email} onChange={(e) => setEmail(e.target.value)}
+              disabled={loading} required
+            />
+          </div>
+
+          {/* username — forget-password only */}
+          {authMode === "forget-password" && (
+            <div>
+              <FieldLabel htmlFor="username">Username</FieldLabel>
+              <AuthInput
+                id="username" placeholder="your_username"
+                value={username} onChange={(e) => setUsername(e.target.value)}
+                disabled={loading} required
+              />
+            </div>
+          )}
+
+          {/* password */}
+          {authMode !== "forget-password" && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                {authMode === "login" && (
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange("forget-password")}
+                    style={{
+                      fontSize: "11px",
+                      color: "var(--color-text-tertiary)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      transition: "color 150ms",
+                      padding: 0,
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-secondary)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-tertiary)"; }}
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <PasswordInput
+                id="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                disabled={loading} required show={showPassword} onToggle={() => setShowPassword(!showPassword)}
+              />
+            </div>
+          )}
+
+          {/* new password — forget-password only */}
+          {authMode === "forget-password" && (
+            <div>
+              <FieldLabel htmlFor="newPassword">New password</FieldLabel>
+              <PasswordInput
+                id="newPassword" placeholder="New password" value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={loading} required show={showPassword} onToggle={() => setShowPassword(!showPassword)}
+              />
+            </div>
+          )}
+
+          {/* confirm password — signup only */}
+          {authMode === "signup" && (
+            <div>
+              <FieldLabel htmlFor="repeatPassword">Confirm password</FieldLabel>
+              <PasswordInput
+                id="repeatPassword" value={repeatPassword} onChange={(e) => setRepeatPassword(e.target.value)}
+                disabled={loading} required show={showPassword} onToggle={() => setShowPassword(!showPassword)}
+              />
+            </div>
+          )}
+
+          {/* agree policy — signup only */}
+          {authMode === "signup" && (
+            <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", cursor: "pointer" }}>
+              <input
+                type="checkbox" checked={agreePolicy}
+                onChange={(e) => setAgreePolicy(e.target.checked)}
+                disabled={loading}
+                style={{ marginTop: "2px", accentColor: "var(--color-accent)" }}
+              />
+              <span style={{ fontSize: "12px", color: "var(--color-text-secondary)", lineHeight: 1.5 }}>
+                I agree to the{" "}
+                <span style={{ color: "var(--color-text-primary)" }}>terms &amp; privacy policy</span>
+              </span>
+            </label>
+          )}
+
+          {/* CTA — angular clip per DESIGN.md §7 */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="clip-corner-br"
+            style={{
+              width: "100%",
+              padding: "11px",
+              marginTop: "4px",
+              background: loading ? "var(--color-accent-hover)" : "var(--color-accent)",
+              border: "none",
+              color: "var(--color-text-on-accent)",
+              fontSize: "14px",
+              fontWeight: 600,
+              cursor: loading ? "not-allowed" : "pointer",
+              transition: "background-color 150ms",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) (e.currentTarget as HTMLButtonElement).style.background = "var(--color-accent-hover)";
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) (e.currentTarget as HTMLButtonElement).style.background = "var(--color-accent)";
+            }}
+          >
+            {loading ? (
+              <>
+                <span
+                  style={{
+                    width: "14px", height: "14px", borderRadius: "50%",
+                    border: "2px solid rgba(255,255,255,0.3)",
+                    borderTopColor: "#fff",
+                    animation: "spin 0.7s linear infinite",
+                    display: "inline-block",
+                  }}
+                />
+                Working…
+              </>
+            ) : (
+              authMode === "login" ? "Login"
+              : authMode === "signup" ? "Create account"
+              : "Reset password"
+            )}
+          </button>
+        </form>
+
+        {/* mode switcher */}
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: "12px",
+            color: "var(--color-text-secondary)",
+            marginTop: "20px",
+          }}
+        >
+          {authMode === "login" && (
+            <>
+              Don&apos;t have an account?{" "}
+              <button
+                onClick={() => handleModeChange("signup")}
+                disabled={loading}
+                style={{
+                  background: "none", border: "none", padding: 0, cursor: "pointer",
+                  fontWeight: 600, color: "var(--color-text-primary)", transition: "color 150ms",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-accent)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-primary)"; }}
+              >
+                Sign up
+              </button>
+            </>
+          )}
+          {authMode === "signup" && (
+            <>
+              Already have an account?{" "}
+              <button
+                onClick={() => handleModeChange("login")}
+                disabled={loading}
+                style={{
+                  background: "none", border: "none", padding: 0, cursor: "pointer",
+                  fontWeight: 600, color: "var(--color-text-primary)", transition: "color 150ms",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-accent)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-primary)"; }}
+              >
+                Login instead
+              </button>
+            </>
+          )}
+          {authMode === "forget-password" && (
+            <button
+              onClick={() => handleModeChange("login")}
+              disabled={loading}
+              style={{
+                background: "none", border: "none", padding: 0, cursor: "pointer",
+                fontWeight: 600, color: "var(--color-text-primary)", transition: "color 150ms",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-accent)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--color-text-primary)"; }}
+            >
+              ← Back to login
+            </button>
+          )}
         </p>
       </div>
 
-      {/* Status Messages */}
-      {error && (
-        <div className="flex items-center gap-2 text-xs bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl max-w-sm">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-      {success && (
-        <div className="flex items-center gap-2 text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3 rounded-xl max-w-sm">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>{success}</span>
-        </div>
-      )}
-
-      {/* OAuth Social Buttons (only for Login and Signup) */}
-      {authMode !== "forget-password" && (
-        <div className="flex flex-row gap-3 max-w-sm">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleOAuth("github")}
-            className="flex-1 border border-neutral-900 bg-[#0c0c0e]/80 text-neutral-300 hover:bg-neutral-900 hover:text-neutral-100 flex items-center justify-center gap-2 h-10 text-xs font-semibold rounded-xl transition-colors"
-            disabled={loading}
+      {/* ────────── RIGHT — branding panel (hidden on small screens) ────────── */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          padding: "0 72px",
+          background: "var(--color-surface)",
+          overflow: "hidden",
+        }}
+        className="hidden lg:flex"
+      >
+        <div style={{ maxWidth: "480px" }}>
+          {/* headline */}
+          <p
+            style={{
+              fontFamily: "var(--font-inter)",
+              fontWeight: 700,
+              fontSize: "42px",
+              lineHeight: 1.1,
+              letterSpacing: "-0.03em",
+              color: "var(--color-text-primary)",
+              marginBottom: "16px",
+            }}
           >
-            {/* Apple Logo SVG Style or GitHub */}
-            <svg className="w-3.5 h-3.5 fill-current text-neutral-300" viewBox="0 0 24 24">
-              <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482C19.138 20.193 22 16.44 22 12.017 22 6.484 17.522 2 12 2z" />
-            </svg>
-            Sign up with GitHub
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleOAuth("google")}
-            className="flex-1 border border-neutral-900 bg-[#0c0c0e]/80 text-neutral-300 hover:bg-neutral-900 hover:text-neutral-100 flex items-center justify-center gap-2 h-10 text-xs font-semibold rounded-xl transition-colors"
-            disabled={loading}
+            Ranked 1v1<br />
+            DSA battles,{" "}
+            <span style={{ color: "var(--color-accent)" }}>live.</span>
+          </p>
+          <p
+            style={{
+              fontSize: "14px",
+              lineHeight: 1.7,
+              color: "var(--color-text-secondary)",
+              marginBottom: "40px",
+            }}
           >
-            {/* Google Logo SVG */}
-            <svg className="w-3.5 h-3.5 fill-current text-neutral-300" viewBox="0 0 24 24">
-              <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-6.887 4.114-4.646 0-8.212-3.83-8.212-8.514 0-4.686 3.566-8.515 8.212-8.515 2.193 0 3.992.836 5.378 2.13l3.225-3.225C18.665 1.5 15.65 0 12.24 0 5.48 0 0 5.48 0 12.24s5.48 12.24 12.24 12.24c7.1 0 12.24-5.01 12.24-12.24 0-.828-.073-1.637-.193-2.455H12.24z" />
-            </svg>
-            Sign up with Google
-          </Button>
-        </div>
-      )}
+            Solve problems faster than your opponent.
+            Climb the leaderboard. Earn your tier.
+          </p>
 
-      {/* Main Credentials Form */}
-      <form onSubmit={handleSubmit} className="space-y-4 max-w-sm">
-        {/* Email Input */}
-        <div className="space-y-1.5">
-          <Label htmlFor="email" className="text-xs text-neutral-400 font-medium">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="Example@gmail.com"
-            className="bg-[#0c0c0e]/50 border-neutral-900 text-neutral-200 h-10 rounded-xl px-4 focus:ring-1 focus:ring-blue-500 placeholder:text-neutral-600"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
-            required
-          />
-        </div>
-
-        {/* Username input (Forget Password only) */}
-        {authMode === "forget-password" && (
-          <div className="space-y-1.5">
-            <Label htmlFor="username" className="text-xs text-neutral-400 font-medium">Username</Label>
-            <Input
-              id="username"
-              type="text"
-              placeholder="Enter your username"
-              className="bg-[#0c0c0e]/50 border-neutral-900 text-neutral-200 h-10 rounded-xl px-4 focus:ring-1 focus:ring-blue-500 placeholder:text-neutral-600"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={loading}
-              required
-            />
-          </div>
-        )}
-
-        {/* Password Inputs */}
-        {authMode === "login" && (
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center">
-              <Label htmlFor="password" className="text-xs text-neutral-400 font-medium">Password</Label>
-              <button
-                type="button"
-                onClick={() => handleModeChange("forget-password")}
-                className="text-xs text-neutral-500 hover:text-neutral-300 underline underline-offset-4"
-                disabled={loading}
-              >
-                Forgot password?
-              </button>
-            </div>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••••••"
-                className="bg-[#0c0c0e]/50 border-neutral-900 text-neutral-200 pr-10 h-10 rounded-xl px-4 focus:ring-1 focus:ring-blue-500 placeholder:text-neutral-600"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {authMode === "signup" && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-xs text-neutral-400 font-medium">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••••••"
-                  className="bg-[#0c0c0e]/50 border-neutral-900 text-neutral-200 pr-10 h-10 rounded-xl px-4 focus:ring-1 focus:ring-blue-500 placeholder:text-neutral-600"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+          {/* stats */}
+          <div style={{ display: "flex", gap: "40px", marginBottom: "40px" }}>
+            {[
+              { label: "Active players", value: "12,400+" },
+              { label: "Problems", value: "840+" },
+              { label: "Matches today", value: "3,200+" },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-jetbrains-mono)",
+                    fontSize: "24px",
+                    fontWeight: 700,
+                    color: "var(--color-text-primary)",
+                    marginBottom: "2px",
+                  }}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+                  {value}
+                </p>
+                <p style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>
+                  {label}
+                </p>
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="repeatPassword" className="text-xs text-neutral-400 font-medium">Repeat password</Label>
-              <div className="relative">
-                <Input
-                  id="repeatPassword"
-                  type={showRepeatPassword ? "text" : "password"}
-                  placeholder="••••••••••••"
-                  className="bg-[#0c0c0e]/50 border-neutral-900 text-neutral-200 pr-10 h-10 rounded-xl px-4 focus:ring-1 focus:ring-blue-500 placeholder:text-neutral-600"
-                  value={repeatPassword}
-                  onChange={(e) => setRepeatPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowRepeatPassword(!showRepeatPassword)}
-                  className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
-                >
-                  {showRepeatPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
-        )}
 
-        {authMode === "forget-password" && (
-          <div className="space-y-1.5">
-            <Label htmlFor="newPassword" className="text-xs text-neutral-400 font-medium">New Password</Label>
-            <div className="relative">
-              <Input
-                id="newPassword"
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter new password"
-                className="bg-[#0c0c0e]/50 border-neutral-900 text-neutral-200 pr-10 h-10 rounded-xl px-4 focus:ring-1 focus:ring-blue-500 placeholder:text-neutral-600"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                disabled={loading}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-neutral-500 hover:text-neutral-300"
+          {/* divider */}
+          <div style={{ height: "1px", background: "var(--color-border)", marginBottom: "24px" }} />
+
+          {/* tier badges */}
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            {[
+              { label: "Bronze", color: "var(--color-tier-bronze)" },
+              { label: "Silver", color: "var(--color-tier-silver)" },
+              { label: "Gold", color: "var(--color-tier-gold)" },
+              { label: "Diamond", color: "var(--color-tier-diamond)" },
+            ].map(({ label, color }) => (
+              <span
+                key={label}
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: "4px",
+                  border: `1px solid ${color}`,
+                  color,
+                  fontSize: "12px",
+                  fontWeight: 500,
+                  background: "transparent",
+                }}
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
+                {label}
+              </span>
+            ))}
           </div>
-        )}
-
-        {/* Privacy Policy Checkbox (signup only) */}
-        {authMode === "signup" && (
-          <div className="flex items-center gap-2 pt-1">
-            <Checkbox
-              id="policy"
-              checked={agreePolicy}
-              onCheckedChange={(checked) => setAgreePolicy(checked === true)}
-              disabled={loading}
-              className="border-neutral-800 data-[state=checked]:bg-[#4f46e5] data-[state=checked]:border-[#4f46e5]"
-            />
-            <Label htmlFor="policy" className="text-[11px] text-neutral-500 cursor-pointer font-normal">
-              I'm read and agree to the{" "}
-              <a href="#" className="text-neutral-300 hover:underline">
-                privacy policy
-              </a>
-            </Label>
-          </div>
-        )}
-
-        {/* Submit Action Button */}
-        <Button 
-          type="submit" 
-          className="w-full bg-[#4f46e5] hover:bg-[#4338ca] text-white font-medium h-10 rounded-xl transition-colors text-xs flex items-center justify-center gap-2 mt-2 shadow-lg shadow-indigo-500/10"
-          disabled={loading}
-        >
-          {loading ? (
-            <span className="w-4 h-4 rounded-full border-2 border-t-transparent border-white animate-spin" />
-          ) : (
-            <>
-              {authMode === "login" && "Login"}
-              {authMode === "signup" && "Sign Up"}
-              {authMode === "forget-password" && "Reset Password"}
-            </>
-          )}
-        </Button>
-      </form>
-
-      {/* Footer State Switches */}
-      <div className="text-xs text-neutral-500 max-w-sm pt-2">
-        {authMode === "login" ? (
-          <>
-            Don't have an account?{" "}
-            <button 
-              onClick={() => handleModeChange("signup")}
-              className="text-neutral-200 hover:underline font-semibold"
-              disabled={loading}
-            >
-              Sign up
-            </button>
-          </>
-        ) : authMode === "signup" ? (
-          <>
-            Already have account?{" "}
-            <button 
-              onClick={() => handleModeChange("login")}
-              className="text-neutral-200 hover:underline font-semibold"
-              disabled={loading}
-            >
-              Sign in
-            </button>
-          </>
-        ) : (
-          <button 
-            onClick={() => handleModeChange("login")}
-            className="text-neutral-200 hover:underline font-semibold"
-            disabled={loading}
-          >
-            Back to sign in
-          </button>
-        )}
+        </div>
       </div>
+
+      {/* spinner keyframe */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="w-full">
-      <Suspense fallback={
-        <div className="w-full flex items-center justify-center p-8 bg-neutral-950/60 rounded-xl border border-neutral-800">
-          <div className="w-8 h-8 rounded-full border-2 border-t-transparent border-neutral-400 animate-spin" />
+    <Suspense
+      fallback={
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "var(--color-bg)",
+            color: "var(--color-text-secondary)",
+            fontSize: "14px",
+          }}
+        >
+          Loading…
         </div>
-      }>
-        <AuthFormContent />
-      </Suspense>
-    </div>
+      }
+    >
+      <AuthFormContent />
+    </Suspense>
   );
 }
