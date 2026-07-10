@@ -101,7 +101,7 @@ function ActiveResultDot(props: {
 
 // ─── Custom tooltip ───────────────────────────────────────────────────────────
 
-function EloTooltip({ active, payload }: TooltipProps<ValueType, NameType>) {
+function EloTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const point = payload[0].payload as EloDataPoint;
 

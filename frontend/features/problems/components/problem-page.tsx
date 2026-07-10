@@ -5,7 +5,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Editor from "@monaco-editor/react";
 import { Navbar } from "@/components/layout/navbar";
-import { fetchProblemBySlug, fetchProblems, type FetchProblemDetailResponse, type Problem } from "../services/problems-service";
+import { fetchProblemBySlug, fetchProblems, type FetchProblemDetailResponse } from "../services/problems-service";
+import type { Problem } from "../types";
 import {
   submitCode,
   runCode,
@@ -599,7 +600,7 @@ export function ProblemDetailsFeature({ initialToken, slug: propSlug }: { initia
                             <span className="text-[9px] font-mono" style={{ color: "var(--color-text-secondary)" }}>
                               {p.acceptanceRate.toFixed(0)}% success
                             </span>
-                            {(p.tags || []).slice(0, 1).map((t) => (
+                            {(p.tags || []).slice(0, 1).map((t: string) => (
                               <span
                                 key={t}
                                 className="text-[8px] font-mono px-1 rounded-sm"
