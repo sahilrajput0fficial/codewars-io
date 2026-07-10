@@ -1,3 +1,4 @@
+
 "use client";
 
 /**
@@ -6,7 +7,7 @@
  * Updated to consume useLeaderboardFilter hook — per AGENTS.md hooks/ pattern.
  */
 
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Search, ChevronDown } from "lucide-react";
 import type { LeaderboardEntry } from "../types";
 import { SORT_OPTIONS, TIMEFRAME_OPTIONS, QUEUE_OPTIONS } from "../constants";
@@ -17,9 +18,8 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ me }: FilterBarProps) {
-  const router       = useRouter();
-  const pathname     = usePathname();
-  const searchParams = useSearchParams();
+  const router   = useRouter();
+  const pathname = usePathname();
 
   const {
     searchVal, setSearchVal,
@@ -121,6 +121,3 @@ export function FilterBar({ me }: FilterBarProps) {
     </div>
   );
 }
-
-// Suppress searchParams unused-var — it's accessed via useLeaderboardFilter internally
-void useSearchParams;

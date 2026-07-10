@@ -1,9 +1,8 @@
 "use client";
 
 /**
- * features/auth/components/difficulty-label.tsx
+ * components/shared/difficulty-label.tsx
  * Coloured difficulty badge per DESIGN.md §4 semantic colours.
- * Shared candidate: if used in problems/ feature too, move to components/shared/.
  */
 
 export function DifficultyLabel({

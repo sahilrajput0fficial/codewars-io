@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { BASE_URL } from "@/proxy";
+import { useUserStore } from "@/stores/user-store";
 
 interface NavItem {
   label: string;
@@ -42,7 +43,7 @@ const SECTIONS: NavSection[] = [
     title: "Competitive",
     items: [
       { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
-      { label: "Kata / Code", href: "/problems",    icon: Code2 },
+      { label: "Problems", href: "/problems",    icon: Code2 },
       { label: "Quests",      href: "/quests",      icon: Flag },
     ]
   },
@@ -60,6 +61,9 @@ export function Sidebar() {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+
+  // Read current user from global store (populated by useCurrentUser in Navbar)
+  const user = useUserStore((state) => state.user);
 
   // Retrieve state settings on mount
   useEffect(() => {
@@ -122,7 +126,10 @@ export function Sidebar() {
       console.error("Backend logout failed:", err);
     }
 
-    // 3. Redirect to login page
+    // 3. Clear the global user store
+    useUserStore.getState().clear();
+
+    // 4. Redirect to login page
     router.push("/auth/login");
   };
 
@@ -252,13 +259,56 @@ export function Sidebar() {
           </nav>
         </div>
 
-        {/* Bottom portion: Sign Out button */}
-        <div className="p-3 border-t" style={{ borderColor: "var(--color-border)" }}>
+        {/* Bottom portion: User info + Sign Out */}
+        <div className="p-3 border-t flex flex-col gap-1" style={{ borderColor: "var(--color-border)" }}>
+          {/* User info pill — visible only when the store has loaded a user */}
+          {user && (
+            <Link
+              href="/u/me"
+              className={`flex items-center transition-all duration-200 group relative mb-1
+                ${isOpen
+                  ? "gap-3 px-3 h-12 rounded-md hover:bg-[var(--color-surface-2)]"
+                  : "justify-center w-10 h-10 rounded-full mx-auto hover:bg-[var(--color-surface-2)]"
+                }
+              `}
+              title={!isOpen ? user.username : undefined}
+            >
+              {/* Avatar circle */}
+              <div
+                className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden text-xs font-bold font-mono"
+                style={{ background: "var(--color-accent-muted)", color: "var(--color-accent)" }}
+              >
+                {user.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.avatar_url} alt={user.username} className="w-full h-full object-cover" />
+                ) : (
+                  user.username.slice(0, 2).toUpperCase()
+                )}
+              </div>
+              {isOpen && (
+                <div className="flex flex-col min-w-0">
+                  <span
+                    className="text-sm font-semibold truncate leading-tight"
+                    style={{ color: "var(--color-text-primary)" }}
+                  >
+                    {user.display_name}
+                  </span>
+                  <span
+                    className="text-[10px] font-mono tabular-nums"
+                    style={{ color: "var(--color-text-tertiary)" }}
+                  >
+                    {user.elo.toLocaleString()} ELO
+                  </span>
+                </div>
+              )}
+            </Link>
+          )}
+
           <button
             onClick={handleLogout}
             className={`flex items-center transition-all duration-200 group relative w-full
-              ${isOpen 
-                ? "gap-3 px-4 h-10 rounded-md" 
+              ${isOpen
+                ? "gap-3 px-4 h-10 rounded-md"
                 : "justify-center w-10 h-10 rounded-full mx-auto"
               }
               hover:bg-red-500/10 text-[var(--color-text-secondary)] hover:text-red-500

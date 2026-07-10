@@ -11,6 +11,7 @@
 import { useState } from "react";
 import type { ProfileUser, EditProfilePayload } from "../types";
 import { updateProfile } from "../services/auth-service";
+import { useUserStore } from "@/stores/user-store";
 
 export interface UseEditProfileReturn {
   editOpen:         boolean;
@@ -33,6 +34,8 @@ export function useEditProfile(
       if (setUser) {
         setUser(updated);
       }
+      // Sync global userStore context
+      useUserStore.getState().setUser(updated);
       return true;
     }
     return false;

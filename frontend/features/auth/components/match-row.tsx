@@ -12,7 +12,7 @@ import { getTier } from "@/constants/elo-tiers";
 import { formatRelativeTime } from "../constants";
 import type { RecentMatch } from "../types";
 import { Avatar }           from "./avatar";
-import { DifficultyLabel }  from "./difficulty-label";
+import { DifficultyLabel }  from "@/components/shared/difficulty-label";
 import Link from "next/link";
 
 export function MatchRow({ match, index }: { match: RecentMatch; index: number }) {

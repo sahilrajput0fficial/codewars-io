@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * features/auth/components/live-dot.tsx
+ * components/shared/live-dot.tsx
  * Animated online-status indicator (DESIGN.md §10.2).
  * Uses ring-ping animation — no glow, no glassmorphism.
  */

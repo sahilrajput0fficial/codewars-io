@@ -192,3 +192,41 @@ export async function fetchUserMatches(
   }
 }
 
+
+export interface BackendEloHistoryEntry {
+  id: string;
+  user_id: string;
+  match_id: string | null;
+  elo_before: number;
+  elo_after: number;
+  delta: number | null;
+  recorded_at: string;
+}
+
+export interface BackendEloHistoryResponse {
+  user_id: string;
+  total: number;
+  limit: number;
+  offset: number;
+  history: BackendEloHistoryEntry[];
+}
+
+/** Fetch user's ELO history records from backend. */
+export async function fetchEloHistory(
+  username: string,
+  limit: number = 100,
+  offset: number = 0,
+  sortOrder: "asc" | "desc" = "asc"
+): Promise<BackendEloHistoryResponse | null> {
+  try {
+    const res = await fetch(
+      `${BASE_URL}/u/${username}/elo-history?limit=${limit}&offset=${offset}&sort_order=${sortOrder}`,
+      { next: { revalidate: 30 } }
+    );
+    if (!res.ok) return null;
+    return await res.json() as BackendEloHistoryResponse;
+  } catch {
+    return null;
+  }
+}
+

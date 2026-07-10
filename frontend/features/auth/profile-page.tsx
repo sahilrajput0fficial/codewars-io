@@ -24,8 +24,8 @@
  *               └── DifficultyBreakdown
  */
 
-import { useEffect, useState }   from "react";
-import Link                      from "next/link";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Trophy,
   Swords,
@@ -40,20 +40,22 @@ import {
   Pencil,
   Loader2,
 } from "lucide-react";
-import { getTier }                from "@/constants/elo-tiers";
+import { getTier } from "@/constants/elo-tiers";
+import { useUserStore } from "@/stores/user-store";
 
 // Feature imports (AGENTS.md: services, hooks, components, constants, types)
 import type { ProfileUser, RecentMatch } from "./types";
 import { DEMO_ACHIEVEMENTS, formatJoinDate, formatDuration } from "./constants";
-import { useEditProfile }         from "./hooks/use-edit-profile";
-import { EditProfileDrawer }      from "./components/edit-profile-drawer";
-import { Avatar }                 from "./components/avatar";
-import { LiveDot }                from "./components/live-dot";
-import { StatChip }               from "./components/stat-chip";
-import { MatchRow }               from "./components/match-row";
-import { SectionCard }            from "./components/section-card";
-import { CopyLinkButton }         from "./components/copy-link-button";
-import { fetchUserMatches }       from "./services/auth-service";
+import { useEditProfile } from "./hooks/use-edit-profile";
+import { EditProfileDrawer } from "./components/edit-profile-drawer";
+import { Avatar } from "./components/avatar";
+import { LiveDot } from "@/components/shared/live-dot";
+import { StatChip } from "./components/stat-chip";
+import { MatchRow } from "./components/match-row";
+import { SectionCard } from "./components/section-card";
+import { CopyLinkButton } from "./components/copy-link-button";
+import { EloHistoryChart, EloDataPoint } from "./components/elo-history-chart";
+import { fetchUserMatches, fetchEloHistory } from "./services/auth-service";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -64,7 +66,7 @@ function winRate(wins: number, played: number) {
 
 function mapToRecentMatch(m: any, currentUserId: string): RecentMatch {
   const isP1 = m.player_one.id === currentUserId;
-  const opponent = isP1 
+  const opponent = isP1
     ? (m.player_two || { username: "Bot", avatar_url: null, elo: m.bot_elo || 1200, elo_tiers: "bronze" })
     : m.player_one;
 
@@ -99,22 +101,35 @@ export default function ProfilePage({
   initialUser,
 }: {
   isOwnProfile?: boolean;
-  initialUser?:  ProfileUser;
+  initialUser?: ProfileUser;
 }) {
-  const [user, setUser] = useState<ProfileUser | null>(initialUser || null);
+  const [localUser, setLocalUser] = useState<ProfileUser | null>(initialUser || null);
+  const storeUser = useUserStore((state) => state.user);
+  const setStoreUser = useUserStore((state) => state.setUser);
+
+  const user = isOwnProfile ? (storeUser || localUser) : localUser;
+
   const [matches, setMatches] = useState<RecentMatch[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [activeTab, setActiveTab] = useState<"All" | "Wins" | "Losses">("All");
+  const [eloHistory, setEloHistory] = useState<EloDataPoint[]>([]);
+  const [loadingElo, setLoadingElo] = useState(true);
   const achievements = DEMO_ACHIEVEMENTS;
 
   // Keep state synced if page transitions to a new user
   useEffect(() => {
     if (initialUser) {
-      setUser(initialUser);
+      setLocalUser(initialUser);
+      if (isOwnProfile) {
+        setStoreUser(initialUser);
+      }
     } else {
-      setUser(null);
+      setLocalUser(null);
+      if (isOwnProfile) {
+        setStoreUser(null);
+      }
     }
-  }, [initialUser]);
+  }, [initialUser, isOwnProfile, setStoreUser]);
 
   useEffect(() => {
     if (!user) return;
@@ -135,13 +150,41 @@ export default function ProfilePage({
     };
   }, [user?.username, user?.id]);
 
+  useEffect(() => {
+    if (!user) return;
+    const { username } = user;
+    let active = true;
+    async function loadEloHistory() {
+      setLoadingElo(true);
+      const data = await fetchEloHistory(username, 50, 0, "asc");
+      if (data && active) {
+        const mapped: EloDataPoint[] = data.history.map((entry) => {
+          const dateObj = new Date(entry.recorded_at);
+          const month = dateObj.toLocaleDateString("en-US", { month: "short" });
+          const day = dateObj.getDate().toString().padStart(2, "0");
+          return {
+            date: `${month} ${day}`,
+            elo: entry.elo_after,
+            result: entry.delta !== null ? (entry.delta >= 0 ? "win" : "loss") : undefined,
+          };
+        });
+        setEloHistory(mapped);
+      }
+      setLoadingElo(false);
+    }
+    loadEloHistory();
+    return () => {
+      active = false;
+    };
+  }, [user?.username]);
+
   const filteredMatches = matches.filter((match) => {
     if (activeTab === "Wins") return match.result === "win";
     if (activeTab === "Losses") return match.result === "loss";
     return true;
   });
 
-  const { editOpen, openEdit, closeEdit, handleSaveProfile } = useEditProfile(setUser);
+  const { editOpen, openEdit, closeEdit, handleSaveProfile } = useEditProfile(setLocalUser);
 
   if (!user) {
     return (
@@ -153,8 +196,8 @@ export default function ProfilePage({
         <p className="text-[10px] text-cw-text-secondary max-w-sm mb-6 uppercase tracking-wider">
           The player profile you are looking for does not exist or has left the arena.
         </p>
-        <Link 
-          href="/leaderboard" 
+        <Link
+          href="/leaderboard"
           className="inline-flex items-center justify-center px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors duration-fast ease-snap"
           style={{
             background: "var(--color-accent)",
@@ -169,7 +212,7 @@ export default function ProfilePage({
   }
 
   const tier = getTier(user.elo_tier);
-  const wr   = winRate(user.wins, user.matches_played);
+  const wr = winRate(user.wins, user.matches_played);
 
   return (
     <>
@@ -246,7 +289,7 @@ export default function ProfilePage({
                   className="px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-cw-bg"
                   style={{
                     background: tier.colorVar,
-                    clipPath:   "polygon(5px 0%, 100% 0%, calc(100% - 5px) 100%, 0% 100%)",
+                    clipPath: "polygon(5px 0%, 100% 0%, calc(100% - 5px) 100%, 0% 100%)",
                   }}
                 >
                   {tier.label}
@@ -277,8 +320,8 @@ export default function ProfilePage({
                   className="flex items-center gap-1.5 px-4 h-8 text-xs font-bold transition-colors duration-fast ease-snap hover:opacity-90"
                   style={{
                     background: "var(--color-accent)",
-                    color:      "var(--color-text-on-accent)",
-                    clipPath:   "polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%)",
+                    color: "var(--color-text-on-accent)",
+                    clipPath: "polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%)",
                   }}
                 >
                   <Swords className="w-3.5 h-3.5" />
@@ -297,15 +340,35 @@ export default function ProfilePage({
         {/* ── Stats Strip ── */}
         <div className="mt-6 mx-6 md:mx-10 rounded-xl border border-cw-border bg-cw-surface overflow-hidden">
           <div className="flex divide-x divide-cw-border overflow-x-auto">
-            <StatChip label="ELO"      value={user.elo.toLocaleString()} accent />
-            <StatChip label="Rank"     value={`#${user.rank}`} />
-            <StatChip label="Matches"  value={user.matches_played} />
-            <StatChip label="Wins"     value={user.wins} />
-            <StatChip label="Losses"   value={user.losses} />
+            <StatChip label="ELO" value={user.elo.toLocaleString()} accent />
+            <StatChip label="Rank" value={`#${user.rank}`} />
+            <StatChip label="Matches" value={user.matches_played} />
+            <StatChip label="Wins" value={user.wins} />
+            <StatChip label="Losses" value={user.losses} />
             <StatChip label="Win Rate" value={`${wr}%`} />
             <StatChip label="Avg Time" value={formatDuration(user.avg_solve_time_ms)} />
-            <StatChip label="Streak"   value={`${user.current_streak}🔥`} />
+            <StatChip label="Streak" value={`${user.current_streak}🔥`} />
           </div>
+        </div>
+
+        {/* ── ELO History Chart — full width above the grid ── */}
+        <div className="mt-6 px-6 md:px-10">
+          <SectionCard title="ELO History" icon={TrendingUp}>
+            {loadingElo ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-2">
+                <Loader2 className="w-6 h-6 text-cw-accent animate-spin" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-cw-text-tertiary">
+                  Loading ELO History...
+                </span>
+              </div>
+            ) : (
+              <EloHistoryChart 
+                data={eloHistory} 
+                height={220} 
+                matchesPlayed={eloHistory.length}  //covert to user.matches_played when actyal data sedded (optional)
+              />
+            )}
+          </SectionCard>
         </div>
 
         {/* ── Two-column body ── */}
@@ -322,8 +385,8 @@ export default function ProfilePage({
                     onClick={() => setActiveTab(tab)}
                     className="pb-2.5 text-sm font-semibold uppercase tracking-widest transition-colors duration-fast ease-snap"
                     style={{
-                      color:        tab === activeTab ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
-                      borderBottom: tab === activeTab ? "2px solid var(--color-accent)"    : "2px solid transparent",
+                      color: tab === activeTab ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
+                      borderBottom: tab === activeTab ? "2px solid var(--color-accent)" : "2px solid transparent",
                     }}
                   >
                     {tab}
@@ -395,12 +458,13 @@ export default function ProfilePage({
 
           {/* ── RIGHT: Competitive Stats ── */}
           <div className="flex flex-col gap-6">
+
             {/* Performance Stats */}
-            <SectionCard title="Performance" icon={TrendingUp}>
+            <SectionCard title="Performance" icon={Zap}>
               <div className="flex flex-col gap-3">
                 {[
-                  { icon: Zap,    label: "Problems Solved",value: String(user.problems_solved), color: "var(--color-text-primary)" },
-                  { icon: Flame,  label: "Best Streak",   value: `${user.longest_win_streak} W`, color: "var(--color-text-primary)" },
+                  { icon: Zap, label: "Problems Solved", value: String(user.problems_solved), color: "var(--color-text-primary)" },
+                  { icon: Flame, label: "Best Streak", value: `${user.longest_win_streak} W`, color: "var(--color-text-primary)" },
                 ].map(({ icon: Icon, label, value, color }) => (
                   <div key={label} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -419,13 +483,13 @@ export default function ProfilePage({
             <SectionCard title="Match Difficulty" icon={Target}>
               <div className="flex flex-col gap-3">
                 {([
-                  { label: "Easy",   color: "var(--color-success)" },
+                  { label: "Easy", color: "var(--color-success)" },
                   { label: "Medium", color: "var(--color-warning)" },
-                  { label: "Hard",   color: "var(--color-danger)"  },
+                  { label: "Hard", color: "var(--color-danger)" },
                 ] as const).map(({ label, color }) => {
-                  const w     = matches.filter((m) => m.problem_difficulty === label && m.result === "win").length;
+                  const w = matches.filter((m) => m.problem_difficulty === label && m.result === "win").length;
                   const total = matches.filter((m) => m.problem_difficulty === label).length;
-                  const pct   = total === 0 ? 0 : Math.round((w / total) * 100);
+                  const pct = total === 0 ? 0 : Math.round((w / total) * 100);
                   return (
                     <div key={label}>
                       <div className="flex items-center justify-between mb-1">
