@@ -31,7 +31,7 @@ class ELOThreshold(Enum):
     diamond = 2000
     gold = 1500
     silver = 1000
-    bronze = 0
+    bronze = 500
 
 
 class MatchLevel(Enum):

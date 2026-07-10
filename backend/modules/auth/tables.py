@@ -40,7 +40,6 @@ class EloHistory(SQLModel, table=True):
     elo_after: int = Field(nullable=False)
     delta: Optional[int] = Field(default=None, description="Generated column: elo_after - elo_before")
     recorded_at: datetime = Field(default_factory=datetime.utcnow)
-    match_level: MatchLevel = Field(default=MatchLevel.easy, nullable=True)
 
     # Relationships
     user: User = Relationship(back_populates="elo_history")

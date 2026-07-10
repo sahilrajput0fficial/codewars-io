@@ -5,12 +5,18 @@ from .schemas import (
     ProfileUpdateRequest,
     UserMatchesRequest,
     UserMatchesResponse,
+    EloHistoryRequest , 
+    EloHistoryResponse  
 )
-import uuid
 from modules.auth.dependencies import get_current_user
 from modules.auth.tables import User
 from core.security import verify_jwt
-from .services import get_profile_data , update_user_profile, upload_image_to_supabase , get_user_matches_service
+from .services import (get_profile_data ,
+            update_user_profile,
+            upload_image_to_supabase ,
+            get_user_matches_service ,
+            get_user_elo_history_service
+)
 from sqlmodel import Session ,select
 from db.session import get_session
 router = APIRouter(
@@ -133,7 +139,28 @@ def upload_profile_asset(
     return {"url": url}
 
 
+@router.get(
+    "/{username}/elo-history",
+    response_model=EloHistoryResponse,
+    summary="ELO history for a user",
+)
+def get_user_elo_history(
+    username : str,
+    session: Annotated[Session, Depends(get_session)],
+    query: Annotated[EloHistoryRequest, Query()],
+):
+    """Return paginated ELO delta records for a specific user.
 
+    - **usernane** –  the target user username
+    - **sort_order** – `desc` = most recent first (default), `asc` = oldest first
+    - **limit** / **offset** – standard pagination
+    """
+
+    statement = select(User).where(User.username == username)
+    user = session.exec(statement).first()
+    return get_user_elo_history_service(
+        session=session, user=user, query=query
+    )
 
 # -------------------------------------------------------------------
 # Code below Reserved for future use.

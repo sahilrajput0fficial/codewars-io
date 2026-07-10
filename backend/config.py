@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_ID: Optional[str] = None
     GITHUB_CLIENT_SECERT: Optional[str] = None
     FRONTEND_URL: str | None = None
+    JUDGE0_URL : str | None = None 
+    RAPIDAPI_KEY : str | None = None
+    RAPIDAPI_HOST: str| None 
 
     model_config = SettingsConfigDict(
         env_file=".env",

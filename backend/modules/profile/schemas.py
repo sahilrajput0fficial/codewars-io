@@ -65,39 +65,42 @@ class UserMatchesResponse(BaseModel):
 class UserMatchesRequest(BulkGetRequest):
     pass
 
+
+
+
+class EloHistoryEntry(BaseModel):
+    """Single ELO delta record."""
+    id: uuid.UUID
+    user_id: uuid.UUID
+    match_id: uuid.UUID | None = None
+    elo_before: int
+    elo_after: int
+    delta: int | None = None
+    recorded_at: datetime.datetime
+    match_level : str | None = None
+    model_config = {"from_attributes": True}
+
+
+class EloHistoryResponse(BaseModel):
+    """Paginated ELO history for a user."""
+    user_id: uuid.UUID
+    total: int
+    limit: int
+    offset: int
+    history: list[EloHistoryEntry]
+   
+
+
+class EloHistoryRequest(BulkGetRequest):
+    """Query params for fetching ELO history of a user."""
+    pass
+
 # -------------------------------------------------------------------
 # Code below Reserved for future use.
 # This code is not currently used but may be needed for practice mode
 # or future features. Do not remove unless confirmed obsolete.
 # -------------------------------------------------------------------
 
-# class EloHistoryEntry(BaseModel):
-#     """Single ELO delta record."""
-#     id: uuid.UUID
-#     user_id: uuid.UUID
-#     match_id: uuid.UUID | None = None
-#     elo_before: int
-#     elo_after: int
-#     delta: int | None = None
-#     recorded_at: datetime.datetime
-#     match_level : str | None = None
-
-#     model_config = {"from_attributes": True}
-
-
-# class EloHistoryResponse(BaseModel):
-#     """Paginated ELO history for a user."""
-#     user_id: uuid.UUID
-#     total: int
-#     limit: int
-#     offset: int
-#     history: list[EloHistoryEntry]
-   
-
-
-# class EloHistoryRequest(BulkGetRequest):
-#     """Query params for fetching ELO history of a user."""
-#     pass
 
 
 

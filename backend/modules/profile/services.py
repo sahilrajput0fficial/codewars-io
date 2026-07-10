@@ -3,15 +3,28 @@ import os
 import json
 from sqlmodel import Session  , select , func
 from typing import Dict , Any 
-from .schemas import ProfileUpdateRequest , ProfileUserResponse , UserMatchesResponse, UserMatchesRequest, MatchOpponentPublic , UserMatchResponse
+from .schemas import (
+    ProfileUpdateRequest , 
+    ProfileUserResponse , 
+    UserMatchesResponse, 
+    UserMatchesRequest, 
+    MatchOpponentPublic , 
+    UserMatchResponse ,
+    EloHistoryRequest ,
+    EloHistoryResponse ,
+    EloHistoryEntry
+
+)
 from modules.auth.tables import User
 from config import Credentials
 import urllib.request
 import urllib.error
 import datetime
+import uuid
 from fastapi import HTTPException , status
 from core.utils import apply_sort_order
 from modules.matches.tables import Matches
+from modules.auth.tables import EloHistory
 
 
 
@@ -208,50 +221,50 @@ def upload_image_to_supabase(file_content: bytes, file_name: str, content_type: 
     return f"{Credentials.SUPABASE_URL}/storage/v1/object/public/profile-assets/{path}"
 
 
+def get_user_elo_history_service(
+    session: Session,
+    user: User,
+    query: EloHistoryRequest,
+) -> EloHistoryResponse:
+    """Return paginated ELO history records for a specific user.
+
+    Records are ordered by *recorded_at* in the direction specified by
+    *query.sort_order* (default: desc = most recent first).
+    """
+    # Verify user exists
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User not found.",
+        )
+
+    # Total count for this user
+    total: int = session.exec(
+        select(func.count()).where(EloHistory.user_id == user.id)
+    ).one()
+
+    stmt = apply_sort_order(
+        select(EloHistory)
+        .join(Matches , EloHistory.match_id == Matches.id)
+        .where(EloHistory.user_id == user.id),
+        EloHistory.recorded_at,
+        query.sort_order,
+    ).limit(query.limit).offset(query.offset)
+
+    records: list[EloHistory] = list(session.exec(stmt).all())
+    history = [EloHistoryEntry.model_validate(r) for r in records]
+
+    return EloHistoryResponse(
+        user_id=user.id,
+        total=total,
+        limit=query.limit,
+        offset=query.offset,
+        history=history,
+    )
+
 # -------------------------------------------------------------------
 # Code below Reserved for future use.
 # This code is not currently used but may be needed for practice mode
 # or future features. Do not remove unless confirmed obsolete.
 # -------------------------------------------------------------------
-# def get_user_elo_history_service(
-#     session: Session,
-#     user_id: uuid.UUID,
-#     query: EloHistoryRequest,
-# ) -> EloHistoryResponse:
-#     """Return paginated ELO history records for a specific user.
-
-#     Records are ordered by *recorded_at* in the direction specified by
-#     *query.sort_order* (default: desc = most recent first).
-#     """
-#     # Verify user exists
-#     user: User | None = session.get(User, user_id)
-#     if not user:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail=f"User with id '{user_id}' not found.",
-#         )
-
-#     # Total count for this user
-#     total: int = session.exec(
-#         select(func.count()).where(EloHistory.user_id == user_id)
-#     ).one()
-
-#     stmt = apply_sort_order(
-#         select(EloHistory)
-#         .join(Matches , EloHistory.match_id == Matches.id)
-#         .where(EloHistory.user_id == user_id),
-#         EloHistory.recorded_at,
-#         query.sort_order,
-#     ).limit(query.limit).offset(query.offset)
-
-#     records: list[EloHistory] = list(session.exec(stmt).all())
-#     history = [EloHistoryEntry.model_validate(r) for r in records]
-
-#     return EloHistoryResponse(
-#         user_id=user_id,
-#         total=total,
-#         limit=query.limit,
-#         offset=query.offset,
-#         history=history,
-#     )
 
