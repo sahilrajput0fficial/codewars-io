@@ -139,9 +139,9 @@ interface RunResult {
 }
 
 
-export function ProblemDetailsFeature({ initialToken }: { initialToken?: string }) {
+export function ProblemDetailsFeature({ initialToken, slug: propSlug }: { initialToken?: string; slug?: string }) {
   const params = useParams();
-  const slug = params?.slug as string;
+  const slug = propSlug || (params?.slug as string);
 
   // ── States ──
   const [activeLanguage, setActiveLanguage] = useState<LangKey>("python");
