@@ -11,7 +11,7 @@ export async function proxy(request: NextRequest) {
 export const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NEXT_PUBLIC_ENVIRONMENT === "production"
-    ? "https://codewars-io.vercel.app/_/backend"
+    ? "https://codewars-io.vercel.app/_/backend/v1"
     : "http://localhost:8000");
 
 export const config = {

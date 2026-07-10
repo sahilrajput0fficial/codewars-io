@@ -1,4 +1,5 @@
 import type { Problem, TopicTag, PromoBanner } from "../types";
+import { BASE_URL } from "@/proxy";
 import { MOCK_PROMO_BANNERS, MOCK_TOPIC_TAGS, MOCK_PROBLEMS } from "../constants";
 
 export async function fetchPromoBanners(): Promise<PromoBanner[]> {
@@ -21,7 +22,6 @@ export interface FetchProblemsParams {
 }
 
 export async function fetchProblems(params: FetchProblemsParams = {}): Promise<Problem[]> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   const queryParams = new URLSearchParams();
   queryParams.set("limit", "100");
 
@@ -36,7 +36,7 @@ export async function fetchProblems(params: FetchProblemsParams = {}): Promise<P
   }
 
   try {
-    const res = await fetch(`${apiUrl}/problems/?${queryParams.toString()}`);
+    const res = await fetch(`${BASE_URL}/problems/?${queryParams.toString()}`);
     if (!res.ok) {
       throw new Error(`HTTP status ${res.status}`);
     }
@@ -136,9 +136,8 @@ const MOCK_PROBLEM_DETAIL: FetchProblemDetailResponse = {
 };
 
 export async function fetchProblemBySlug(slug: string): Promise<FetchProblemDetailResponse> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   try {
-    const res = await fetch(`${apiUrl}/problems/${slug}`, {
+    const res = await fetch(`${BASE_URL}/problems/${slug}`, {
       // Don't cache too long so we see updates instantly
       next: { revalidate: 0 }
     });
