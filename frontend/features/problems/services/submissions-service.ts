@@ -51,7 +51,7 @@ export interface SubmissionResult {
 export async function runCode(
   payload: SubmissionRequest
 ): Promise<SubmissionResult> {
-  const res = await fetch(`${BASE_URL}/submissions?env=f2ca9155`, {
+  const res = await fetch(`${BASE_URL}/submissions/?env=f2ca9155`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",          // sends access_token cookie to backend
@@ -70,7 +70,7 @@ export async function runCode(
 export async function submitCode(
   payload: SubmissionRequest
 ): Promise<SubmissionResult> {
-  const res = await fetch(`${BASE_URL}/submissions?env=b0c66f5b`, {
+  const res = await fetch(`${BASE_URL}/submissions/?env=b0c66f5b`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",          // sends access_token cookie to backend
