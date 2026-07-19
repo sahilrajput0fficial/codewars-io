@@ -19,6 +19,7 @@ import {
   fetchMe,
 } from "@/features/leaderboard";
 import type { LeaderboardEntry, LeaderboardResponse, HATEOASLink } from "@/features/leaderboard";
+import { createClient } from "@/lib/supabase/server";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -187,9 +188,15 @@ export default async function LeaderboardPage({
 }: {
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
+  // Use the Supabase server client for the auth guard — honours token refreshes
+  // that the proxy middleware performed, not just the raw access_token cookie.
+  const supabase = await createClient();
+  const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+  if (!supabaseUser) redirect("/auth/login");
+
+  // Forward the full cookie header to FastAPI for the authenticated /leaderboard/me call.
   const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
-  if (!token) redirect("/auth/login");
+  const cookieHeader = cookieStore.toString();
 
   const params = await searchParams;
   const sortBy = params.sort_by ?? "elo";
@@ -200,7 +207,7 @@ export default async function LeaderboardPage({
   const [data, top3, me] = await Promise.all([
     fetchLeaderboard(sortBy, limit, offset, q),
     fetchTop3(sortBy),
-    fetchMe(token as string),
+    fetchMe(cookieHeader),
   ]);
 
   if (!data) {

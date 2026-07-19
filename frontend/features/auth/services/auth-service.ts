@@ -9,7 +9,7 @@
  * in the real FastAPI endpoints is a one-line swap per function.
  */
 
-import { BASE_URL } from "@/proxy";
+import { BASE_URL } from "@/lib/api-client";
 import type { ProfileUser, EditProfilePayload } from "../types";
 
 // ─── Backend Response Schema ──────────────────────────────────────────────────
@@ -126,12 +126,24 @@ export async function fetchProfile(username: string): Promise<ProfileUser | null
   }
 }
 
-/** Fetch the current session user's own profile (requires auth cookie). */
-export async function fetchMyProfile(cookie: string): Promise<ProfileUser | null> {
+/**
+ * Fetch the current session user's own profile (requires auth).
+ *
+ * @param cookieHeader - Full cookie header string from `(await cookies()).toString()`.
+ *   This forwards every session cookie Supabase set (access_token, refresh_token, etc.)
+ *   to the FastAPI backend so it can validate the JWT.  Only needed in Server Components /
+ *   Route Handlers — omit in client components where the browser forwards cookies
+ *   automatically via `credentials: "include"`.
+ */
+export async function fetchMyProfile(cookieHeader?: string): Promise<ProfileUser | null> {
   try {
+    const headers: Record<string, string> = {};
+    if (cookieHeader) headers["Cookie"] = cookieHeader;
+
     const res = await fetch(`${BASE_URL}/u/me`, {
-      headers: { Cookie: cookie },
-      next:    { revalidate: 0 },
+      headers,
+      credentials: cookieHeader ? undefined : "include",
+      next: { revalidate: 0 },
     });
     if (!res.ok) return null;
     const data = await res.json() as BackendProfileResponse;
@@ -143,24 +155,28 @@ export async function fetchMyProfile(cookie: string): Promise<ProfileUser | null
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
 
-/** PATCH the current user's profile details. */
+/**
+ * PATCH the current user's profile details.
+ *
+ * @param cookieHeader - Optional full cookie header string for server-side calls.
+ *   Client-side calls rely on the browser cookie jar via `credentials: "include"`.
+ */
 export async function updateProfile(
   payload: EditProfilePayload,
-  cookie?:  string
+  cookieHeader?: string
 ): Promise<ProfileUser | null> {
   try {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (cookie) {
-      headers["Cookie"] = cookie;
-    }
+    if (cookieHeader) headers["Cookie"] = cookieHeader;
+
     const res = await fetch(`${BASE_URL}/u/me`, {
-      method:  "PATCH",
+      method:      "PATCH",
       headers,
-      body: JSON.stringify(payload),
-      credentials: "include",
-    } as RequestInit);
+      body:        JSON.stringify(payload),
+      credentials: cookieHeader ? undefined : "include",
+    });
     if (!res.ok) return null;
     const data = await res.json() as BackendProfileResponse;
     return mapBackendProfile(data);

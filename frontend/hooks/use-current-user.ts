@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useUserStore } from "@/stores/user-store";
-import { BASE_URL } from "@/proxy";
+import { BASE_URL } from "@/lib/api-client";
 import { mapBackendProfile } from "@/features/auth/services/auth-service";
 
 export function useCurrentUser() {

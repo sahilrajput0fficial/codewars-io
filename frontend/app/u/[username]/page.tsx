@@ -12,20 +12,19 @@ export default async function UserProfilePage({
   params: Promise<{ username: string }>;
 }) {
   const { username } = await params;
-  
-  // 1. Initiate cookies and token access
+
+  // Forward the full cookie header to let FastAPI validate the Supabase session.
+  // This includes access_token, refresh_token, and any other cookies the proxy
+  // middleware may have set — more robust than extracting a single cookie value.
   const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
+  const cookieHeader = cookieStore.toString();
 
-  // 2. Fetch profiles in parallel to avoid network waterfalls
-  const fetchedUserPromise = fetchProfile(username);
-  const myUserPromise = token ? fetchMyProfile(`access_token=${token}`) : Promise.resolve(null);
-
+  // Fetch profiles in parallel to avoid network waterfalls
   const [fetchedUser, myUser] = await Promise.all([
-    fetchedUserPromise,
-    myUserPromise
+    fetchProfile(username),
+    fetchMyProfile(cookieHeader),
   ]);
-  
+
   const isSelf = !!(myUser && myUser.username.toLowerCase() === username.toLowerCase());
 
   return (
@@ -43,12 +42,13 @@ export default async function UserProfilePage({
           ]}
         />
 
-        <ProfilePage 
-          isOwnProfile={isSelf} 
-          initialUser={fetchedUser || undefined} 
+        <ProfilePage
+          isOwnProfile={isSelf}
+          initialUser={fetchedUser || undefined}
         />
       </div>
     </div>
   );
 }
+
 

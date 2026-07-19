@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { BASE_URL } from "@/proxy";
+import { BASE_URL } from "@/lib/api-client";
 import { LogOut } from "lucide-react";
 
 interface LogoutButtonProps {

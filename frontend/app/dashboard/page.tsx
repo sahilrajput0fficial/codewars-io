@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { BASE_URL } from "@/proxy";
+import { BASE_URL } from "@/lib/api-client";
 import { LogoutButton } from "@/components/logout-button";
 
 interface UserProfile {

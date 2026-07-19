@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
 import ProfilePage from "@/features/auth/profile-page";
 import { fetchMyProfile } from "@/features/auth";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 // ─── Metadata ─────────────────────────────────────────────────────────────────
@@ -16,17 +17,24 @@ export const metadata: Metadata = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function MyProfilePage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
-  
-  if (!token) {
-    redirect("/login");
+  // Use the Supabase server client to check session — this correctly validates
+  // the full session (not just the raw access_token cookie), honouring token
+  // refreshes that the proxy middleware performed.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login");
   }
 
-  // Fetch logged-in user's profile from the backend
-  const user = await fetchMyProfile(`access_token=${token}`);
-  if (!user) {
-    redirect("/login");
+  // Forward the full cookie header to FastAPI so it can validate the JWT
+  // (access_token, refresh_token, and any other Supabase cookies are included).
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore.toString();
+
+  const profile = await fetchMyProfile(cookieHeader);
+  if (!profile) {
+    redirect("/auth/login");
   }
 
   return (
@@ -40,18 +48,17 @@ export default async function MyProfilePage() {
         <Navbar
           breadcrumbs={[
             { label: "Players", href: "/leaderboard" },
-            { label: user.username },
+            { label: profile.username },
             { label: "My Profile" },
           ]}
         />
 
         {/* isOwnProfile=true → shows Edit Profile button instead of Challenge */}
-        <ProfilePage 
-          isOwnProfile={true} 
-          initialUser={user} 
+        <ProfilePage
+          isOwnProfile={true}
+          initialUser={profile}
         />
       </div>
     </div>
   );
 }
-

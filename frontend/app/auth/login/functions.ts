@@ -1,4 +1,4 @@
-import { BASE_URL } from "@/proxy";
+import { BASE_URL } from "@/lib/api-client";
 import { supabase } from "@/app/utility/supabase";
 import { LoginPayload, SignupPayload, ForgetPasswordPayload } from "./schemas";
 

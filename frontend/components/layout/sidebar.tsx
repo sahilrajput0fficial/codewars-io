@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { BASE_URL } from "@/proxy";
+import { BASE_URL } from "@/lib/api-client";
 import { useUserStore } from "@/stores/user-store";
 
 interface NavItem {

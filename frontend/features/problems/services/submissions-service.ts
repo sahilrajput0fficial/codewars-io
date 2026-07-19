@@ -1,4 +1,4 @@
-import { BASE_URL } from "@/proxy";
+import { BASE_URL } from "@/lib/api-client";
 
 export type SubmissionLanguage = "python" | "cpp" | "javascript";
 

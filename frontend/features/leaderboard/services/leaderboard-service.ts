@@ -8,7 +8,7 @@
  *              directly inside a component or page file."
  */
 
-import { BASE_URL } from "@/proxy";
+import { BASE_URL } from "@/lib/api-client";
 import type { LeaderboardEntry } from "../types";
 
 // ─── Response shapes ──────────────────────────────────────────────────────────
@@ -56,11 +56,22 @@ export async function fetchTop3(sortBy: string): Promise<LeaderboardEntry[]> {
   return data?.entries ?? [];
 }
 
-export async function fetchMe(token: string): Promise<LeaderboardEntry | null> {
+/**
+ * Fetch the current user's own leaderboard entry (requires auth).
+ *
+ * @param cookieHeader - Full cookie header string from `(await cookies()).toString()`.
+ *   Forwards every session cookie the proxy set so FastAPI can validate the JWT.
+ *   Only needed in Server Components; omit in client contexts.
+ */
+export async function fetchMe(cookieHeader?: string): Promise<LeaderboardEntry | null> {
   try {
+    const headers: Record<string, string> = {};
+    if (cookieHeader) headers["Cookie"] = cookieHeader;
+
     const res = await fetch(`${BASE_URL}/leaderboard/me`, {
-      headers: { Cookie: `access_token=${token}` },
-      next:    { revalidate: 0 },
+      headers,
+      credentials: cookieHeader ? undefined : "include",
+      next: { revalidate: 0 },
     });
     if (!res.ok) return null;
     return res.json() as Promise<LeaderboardEntry>;

@@ -1,5 +1,5 @@
 import type { Problem, TopicTag, PromoBanner } from "../types";
-import { BASE_URL } from "@/proxy";
+import { BASE_URL } from "@/lib/api-client";
 import { MOCK_PROMO_BANNERS, MOCK_TOPIC_TAGS, MOCK_PROBLEMS } from "../constants";
 
 export async function fetchPromoBanners(): Promise<PromoBanner[]> {
