@@ -5,10 +5,12 @@ import uuid
 from fastapi import HTTPException, status
 from sqlmodel import Session, select, func
 
-from .tables import Problem, TestCase, ProblemDifficulty
+from .tables import Problem, ProblemTag, ProblemTagLink, TestCase, ProblemDifficulty
 from .schemas import (
     ProblemCreate,
     ProblemUpdate,
+    ProblemTagResponse,
+    ProblemTagWithCount,
     ProblemListItem,
     ProblemResponse,
     ProblemAdminResponse,
@@ -53,6 +55,86 @@ def _get_test_case_or_404(session: Session, tc_id: uuid.UUID) -> TestCase:
     return tc
 
 
+def _resolve_tags(session: Session, tag_ids: List[uuid.UUID]) -> List[ProblemTag]:
+    """Fetch ProblemTag rows for the given UUIDs; raise 400 for any missing."""
+    tags = []
+    for tid in tag_ids:
+        tag = session.get(ProblemTag, tid)
+        if not tag:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Tag '{tid}' not found in problem_tags.",
+            )
+        tags.append(tag)
+    return tags
+
+
+def _set_problem_tags(
+    session: Session, problem: Problem, tag_ids: List[uuid.UUID]
+) -> None:
+    """Replace all tag links for a problem with a new set of tag_ids."""
+    # Delete existing links for this problem
+    existing_links = session.exec(
+        select(ProblemTagLink).where(ProblemTagLink.problem_id == problem.id)
+    ).all()
+    for link in existing_links:
+        session.delete(link)
+
+    # Insert new links
+    for tid in tag_ids:
+        # Validate tag exists
+        if not session.get(ProblemTag, tid):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Tag '{tid}' not found in problem_tags.",
+            )
+        session.add(ProblemTagLink(problem_id=problem.id, tag_id=tid))
+
+
+def _tags_for_problem(session: Session, problem_id: uuid.UUID) -> List[ProblemTag]:
+    """Return ProblemTag rows linked to a problem via problem_tags_link."""
+    stmt = (
+        select(ProblemTag)
+        .join(ProblemTagLink, ProblemTagLink.tag_id == ProblemTag.id)
+        .where(ProblemTagLink.problem_id == problem_id)
+        .order_by(ProblemTag.name)
+    )
+    return list(session.exec(stmt).all())
+
+
+# ── Tag CRUD ──────────────────────────────────────────────────────────────────
+
+def list_tags(session: Session) -> List[ProblemTagWithCount]:
+    """
+    Return all tags in problem_tags, each annotated with a `count` of how many
+    problems are linked to it via problem_tags_link.
+    Ordered by count descending so the most-used tags appear first.
+    """
+    # Subquery: count problems per tag
+    count_stmt = (
+        select(
+            ProblemTagLink.tag_id,
+            func.count(ProblemTagLink.problem_id).label("problem_count"),
+        )
+        .group_by(ProblemTagLink.tag_id)
+        .subquery()
+    )
+
+    # Left-join tags with the count subquery so tags with 0 problems are included
+    rows = session.exec(
+        select(ProblemTag, count_stmt.c.problem_count)
+        .outerjoin(count_stmt, count_stmt.c.tag_id == ProblemTag.id)
+        .order_by(func.coalesce(count_stmt.c.problem_count, 0).desc(), ProblemTag.name)
+    ).all()
+
+    result = []
+    for tag, count in rows:
+        item = ProblemTagWithCount.model_validate(tag)
+        item.count = count or 0
+        result.append(item)
+    return result
+
+
 # ── Problem CRUD ──────────────────────────────────────────────────────────────
 
 def create_problem(session: Session, payload: ProblemCreate) -> Problem:
@@ -64,11 +146,11 @@ def create_problem(session: Session, payload: ProblemCreate) -> Problem:
             detail=f"A problem with slug '{payload.slug}' already exists.",
         )
 
+    # Note: topic_tags is intentionally not set — use tag_ids / problem_tags_link instead
     problem = Problem(
         title=payload.title,
         slug=payload.slug,
         difficulty=payload.difficulty,
-        topic_tags=payload.topic_tags,
         description_md=payload.description_md,
         constraints=payload.constraints,
         starter_code=payload.starter_code,
@@ -79,6 +161,13 @@ def create_problem(session: Session, payload: ProblemCreate) -> Problem:
     session.add(problem)
     session.commit()
     session.refresh(problem)
+
+    # Link tags via the join table
+    if payload.tag_ids:
+        _set_problem_tags(session, problem, payload.tag_ids)
+        session.commit()
+        session.refresh(problem)
+
     return problem
 
 
@@ -87,7 +176,7 @@ def list_problems(
     limit: int = 20,
     offset: int = 0,
     difficulty: Optional[ProblemDifficulty] = None,
-    tag: Optional[str] = None,
+    tag: Optional[str] = None,    # now matches problem_tags.slug
     q: Optional[str] = None,
 ) -> ProblemListResponse:
     statement = select(Problem)
@@ -96,6 +185,15 @@ def list_problems(
         statement = statement.where(Problem.difficulty == difficulty)
     if q:
         statement = statement.where(Problem.title.ilike(f"%{q}%"))
+    if tag:
+        # Filter problems that have a linked tag with the given slug
+        statement = statement.where(
+            Problem.id.in_(
+                select(ProblemTagLink.problem_id)
+                .join(ProblemTag, ProblemTag.id == ProblemTagLink.tag_id)
+                .where(ProblemTag.slug == tag)
+            )
+        )
 
     # Count total (without pagination)
     total_stmt = select(func.count()).select_from(statement.subquery())
@@ -105,17 +203,24 @@ def list_problems(
     statement = statement.order_by(Problem.created_at.desc()).offset(offset).limit(limit)
     problems = session.exec(statement).all()
 
-    return ProblemListResponse(
-        total=total,
-        limit=limit,
-        offset=offset,
-        items=[ProblemListItem.model_validate(p) for p in problems],
-    )
+    # Build response items — load tags for each problem individually.
+    # For large lists consider a batch join; this is acceptable for limit ≤ 100.
+    items = []
+    for p in problems:
+        item = ProblemListItem.model_validate(p)
+        item.tags = [
+            ProblemTagResponse.model_validate(t)
+            for t in _tags_for_problem(session, p.id)
+        ]
+        items.append(item)
+
+    return ProblemListResponse(total=total, limit=limit, offset=offset, items=items)
 
 
 def get_problem(session: Session, slug: str) -> ProblemResponse:
     """Public detail — excludes editorial; only returns sample test cases."""
     problem = _get_problem_by_slug_or_404(session, slug)
+
     sample_cases_stmt = (
         select(TestCase)
         .where(TestCase.problem_id == problem.id, TestCase.is_sample == True)  # noqa: E712
@@ -124,13 +229,20 @@ def get_problem(session: Session, slug: str) -> ProblemResponse:
     sample_cases = session.exec(sample_cases_stmt).all()
 
     response = ProblemResponse.model_validate(problem)
-    response.sample_test_cases = [TestCasePublicResponse.model_validate(tc) for tc in sample_cases]
+    response.tags = [
+        ProblemTagResponse.model_validate(t)
+        for t in _tags_for_problem(session, problem.id)
+    ]
+    response.sample_test_cases = [
+        TestCasePublicResponse.model_validate(tc) for tc in sample_cases
+    ]
     return response
 
 
 def get_problem_admin(session: Session, problem_id: uuid.UUID) -> ProblemAdminResponse:
     """Admin detail — includes editorial and all test cases."""
     problem = _get_problem_or_404(session, problem_id)
+
     all_cases_stmt = (
         select(TestCase)
         .where(TestCase.problem_id == problem.id)
@@ -139,6 +251,10 @@ def get_problem_admin(session: Session, problem_id: uuid.UUID) -> ProblemAdminRe
     all_cases = session.exec(all_cases_stmt).all()
 
     response = ProblemAdminResponse.model_validate(problem)
+    response.tags = [
+        ProblemTagResponse.model_validate(t)
+        for t in _tags_for_problem(session, problem.id)
+    ]
     response.test_cases = [TestCaseResponse.model_validate(tc) for tc in all_cases]
     return response
 
@@ -148,12 +264,22 @@ def update_problem(
 ) -> Problem:
     problem = _get_problem_or_404(session, problem_id)
     update_data = payload.model_dump(exclude_unset=True)
+
+    # Handle tag_ids separately — do NOT write to the deprecated topic_tags column
+    tag_ids = update_data.pop("tag_ids", None)
+
     for field, value in update_data.items():
         setattr(problem, field, value)
     problem.updated_at = datetime.utcnow()
     session.add(problem)
     session.commit()
     session.refresh(problem)
+
+    if tag_ids is not None:
+        _set_problem_tags(session, problem, tag_ids)
+        session.commit()
+        session.refresh(problem)
+
     return problem
 
 

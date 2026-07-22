@@ -19,19 +19,19 @@ export function TagCloud({ tags, selectedTag, onSelectTag }: TagCloudProps) {
     <div className="flex flex-col gap-2.5">
       <div className="flex flex-wrap gap-1.5 transition-all duration-slow ease-settle">
         {displayedTags.map((tag) => {
-          const isActive = selectedTag === tag.label;
+          const isActive = selectedTag === tag.slug;
           return (
             <button
-              key={tag.label}
-              onClick={() => onSelectTag(isActive ? null : tag.label)}
+              key={tag.slug}
+              onClick={() => onSelectTag(isActive ? null : tag.slug)}
               className="px-4 py-2 rounded text-xs font-medium border transition-all duration-fast ease-snap flex items-center gap-1.5 cursor-pointer"
               style={{
-                background: isActive ? "var(--color-accent)" : "var(--color-surface)",
-                borderColor: isActive ? "var(--color-accent)" : "var(--color-border)",
-                color: isActive ? "var(--color-accent-on-hover)" : "var(--color-text-secondary)",
+                background:   isActive ? "var(--color-accent)"          : "var(--color-surface)",
+                borderColor:  isActive ? "var(--color-accent)"          : "var(--color-border)",
+                color:        isActive ? "white"  : "var(--color-text-secondary)",
               }}
             >
-              <span className="font-sans leading-none">{tag.label}</span>
+              <span className="font-sans leading-none">{tag.name}</span>
               <span
                 className="font-mono text-[9px] tabular-nums font-bold leading-none"
                 style={{

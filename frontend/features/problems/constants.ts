@@ -31,34 +31,43 @@ export const MOCK_PROMO_BANNERS: PromoBanner[] = [
   },
 ];
 
+// Mock tags use fake UUIDs; real tags come from GET /problems/tags/
 export const MOCK_TOPIC_TAGS: TopicTag[] = [
-  { label: "All", count: 1200, category: "all" },
-  { label: "Array", count: 1234, category: "Algorithms" },
-  { label: "String", count: 768, category: "Algorithms" },
-  { label: "Hash Table", count: 521, category: "Algorithms" },
-  { label: "Dynamic Programming", count: 432, category: "Algorithms" },
-  { label: "Sorting", count: 300, category: "Algorithms" },
-  { label: "Math", count: 250, category: "Algorithms" },
-  { label: "Greedy", count: 210, category: "Algorithms" },
-  { label: "Depth-First Search", count: 180, category: "Algorithms" },
-  { label: "Database", count: 150, category: "Database" },
-  { label: "Binary Search", count: 140, category: "Algorithms" },
-  { label: "Breadth-First Search", count: 130, category: "Algorithms" },
-  { label: "Tree", count: 120, category: "Algorithms" },
-  { label: "Matrix", count: 110, category: "Algorithms" },
-  { label: "Two Pointers", count: 100, category: "Algorithms" },
-  { label: "Bit Manipulation", count: 90, category: "Algorithms" },
-  { label: "Design", count: 70, category: "Algorithms" },
-  { label: "Stack", count: 60, category: "Algorithms" },
-  { label: "Heap (Priority Queue)", count: 50, category: "Algorithms" },
-  { label: "Backtracking", count: 45, category: "Algorithms" },
-  { label: "Graph", count: 40, category: "Algorithms" },
-  { label: "Sliding Window", count: 35, category: "Algorithms" },
-  { label: "Union Find", count: 30, category: "Algorithms" },
-  { label: "Linked List", count: 25, category: "Algorithms" },
-  { label: "Trie", count: 20, category: "Algorithms" },
-  { label: "Recursion", count: 15, category: "Algorithms" },
+  { id: "00000000-0000-0000-0000-000000000001", name: "Array",                   slug: "array",                   count: 1234 },
+  { id: "00000000-0000-0000-0000-000000000002", name: "String",                  slug: "string",                  count: 768  },
+  { id: "00000000-0000-0000-0000-000000000003", name: "Hash Table",              slug: "hash-table",              count: 521  },
+  { id: "00000000-0000-0000-0000-000000000004", name: "Dynamic Programming",    slug: "dynamic-programming",    count: 432  },
+  { id: "00000000-0000-0000-0000-000000000005", name: "Sorting",                 slug: "sorting",                 count: 300  },
+  { id: "00000000-0000-0000-0000-000000000006", name: "Math",                    slug: "math",                    count: 250  },
+  { id: "00000000-0000-0000-0000-000000000007", name: "Greedy",                  slug: "greedy",                  count: 210  },
+  { id: "00000000-0000-0000-0000-000000000008", name: "Depth-First Search",     slug: "depth-first-search",     count: 180  },
+  { id: "00000000-0000-0000-0000-000000000009", name: "Database",               slug: "database",               count: 150  },
+  { id: "00000000-0000-0000-0000-000000000010", name: "Binary Search",          slug: "binary-search",          count: 140  },
+  { id: "00000000-0000-0000-0000-000000000011", name: "Breadth-First Search",   slug: "breadth-first-search",   count: 130  },
+  { id: "00000000-0000-0000-0000-000000000012", name: "Tree",                   slug: "tree",                   count: 120  },
+  { id: "00000000-0000-0000-0000-000000000013", name: "Matrix",                 slug: "matrix",                 count: 110  },
+  { id: "00000000-0000-0000-0000-000000000014", name: "Two Pointers",           slug: "two-pointers",           count: 100  },
+  { id: "00000000-0000-0000-0000-000000000015", name: "Bit Manipulation",       slug: "bit-manipulation",       count: 90   },
+  { id: "00000000-0000-0000-0000-000000000016", name: "Design",                 slug: "design",                 count: 70   },
+  { id: "00000000-0000-0000-0000-000000000017", name: "Stack",                  slug: "stack",                  count: 60   },
+  { id: "00000000-0000-0000-0000-000000000018", name: "Heap (Priority Queue)", slug: "heap-priority-queue",   count: 50   },
+  { id: "00000000-0000-0000-0000-000000000019", name: "Backtracking",           slug: "backtracking",           count: 45   },
+  { id: "00000000-0000-0000-0000-000000000020", name: "Graph",                  slug: "graph",                  count: 40   },
+  { id: "00000000-0000-0000-0000-000000000021", name: "Sliding Window",         slug: "sliding-window",         count: 35   },
+  { id: "00000000-0000-0000-0000-000000000022", name: "Union Find",             slug: "union-find",             count: 30   },
+  { id: "00000000-0000-0000-0000-000000000023", name: "Linked List",            slug: "linked-list",            count: 25   },
+  { id: "00000000-0000-0000-0000-000000000024", name: "Trie",                   slug: "trie",                   count: 20   },
+  { id: "00000000-0000-0000-0000-000000000025", name: "Recursion",              slug: "recursion",              count: 15   },
 ];
+
+// Helper: look up a mock TopicTag by name (used by MOCK_PROBLEMS below)
+const mt = (name: string): TopicTag => {
+  const found = MOCK_TOPIC_TAGS.find((t) => t.name === name);
+  if (found) return found;
+  // Fallback for names not in the list (e.g. "Divide and Conquer", "Shell", etc.)
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return { id: `mock-${slug}`, name, slug, count: 0 };
+};
 
 export const MOCK_PROBLEMS: Problem[] = [
   {
@@ -70,7 +79,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Easy",
     status: "solved",
     category: "Algorithms",
-    tags: ["Array", "Hash Table"],
+    tags: [mt("Array"), mt("Hash Table")],
   },
   {
     id: "p2",
@@ -81,7 +90,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "attempted",
     category: "Algorithms",
-    tags: ["Linked List", "Math"],
+    tags: [mt("Linked List"), mt("Math")],
   },
   {
     id: "p3",
@@ -92,7 +101,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "solved",
     category: "Algorithms",
-    tags: ["Hash Table", "String", "Sliding Window"],
+    tags: [mt("Hash Table"), mt("String"), mt("Sliding Window")],
   },
   {
     id: "p4",
@@ -103,7 +112,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Hard",
     status: "todo",
     category: "Algorithms",
-    tags: ["Array", "Binary Search", "Divide and Conquer"],
+    tags: [mt("Array"), mt("Binary Search"), mt("Divide and Conquer")],
   },
   {
     id: "p5",
@@ -114,7 +123,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "todo",
     category: "Algorithms",
-    tags: ["String", "Dynamic Programming"],
+    tags: [mt("String"), mt("Dynamic Programming")],
   },
   {
     id: "p6",
@@ -125,7 +134,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "todo",
     category: "Algorithms",
-    tags: ["String"],
+    tags: [mt("String")],
   },
   {
     id: "p7",
@@ -136,7 +145,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "solved",
     category: "Algorithms",
-    tags: ["Math"],
+    tags: [mt("Math")],
   },
   {
     id: "p8",
@@ -147,7 +156,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "attempted",
     category: "Algorithms",
-    tags: ["String"],
+    tags: [mt("String")],
   },
   {
     id: "p9",
@@ -158,7 +167,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Easy",
     status: "solved",
     category: "Algorithms",
-    tags: ["Math"],
+    tags: [mt("Math")],
   },
   {
     id: "p10",
@@ -169,7 +178,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Hard",
     status: "todo",
     category: "Algorithms",
-    tags: ["String", "Dynamic Programming", "Recursion"],
+    tags: [mt("String"), mt("Dynamic Programming"), mt("Recursion")],
   },
   {
     id: "p11",
@@ -180,7 +189,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "solved",
     category: "Algorithms",
-    tags: ["Array", "Two Pointers"],
+    tags: [mt("Array"), mt("Two Pointers")],
   },
   {
     id: "p12",
@@ -191,7 +200,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "todo",
     category: "Algorithms",
-    tags: ["Math", "String"],
+    tags: [mt("Math"), mt("String")],
   },
   {
     id: "p13",
@@ -202,7 +211,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Easy",
     status: "solved",
     category: "Algorithms",
-    tags: ["Math", "String"],
+    tags: [mt("Math"), mt("String")],
   },
   {
     id: "p14",
@@ -213,7 +222,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Easy",
     status: "solved",
     category: "Algorithms",
-    tags: ["String"],
+    tags: [mt("String")],
   },
   {
     id: "p15",
@@ -224,7 +233,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "todo",
     category: "Algorithms",
-    tags: ["Array", "Two Pointers", "Sorting"],
+    tags: [mt("Array"), mt("Two Pointers"), mt("Sorting")],
   },
   {
     id: "p19",
@@ -235,7 +244,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "todo",
     category: "Algorithms",
-    tags: ["Linked List", "Two Pointers"],
+    tags: [mt("Linked List"), mt("Two Pointers")],
   },
   {
     id: "p20",
@@ -246,7 +255,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Easy",
     status: "solved",
     category: "Algorithms",
-    tags: ["String", "Stack"],
+    tags: [mt("String"), mt("Stack")],
   },
   {
     id: "p21",
@@ -257,7 +266,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Easy",
     status: "solved",
     category: "Algorithms",
-    tags: ["Linked List", "Recursion"],
+    tags: [mt("Linked List"), mt("Recursion")],
   },
   {
     id: "p22",
@@ -268,7 +277,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "todo",
     category: "Algorithms",
-    tags: ["String", "Dynamic Programming", "Backtracking"],
+    tags: [mt("String"), mt("Dynamic Programming"), mt("Backtracking")],
   },
   {
     id: "p175",
@@ -279,7 +288,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Easy",
     status: "solved",
     category: "Database",
-    tags: ["Database"],
+    tags: [mt("Database")],
   },
   {
     id: "p176",
@@ -290,7 +299,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "todo",
     category: "Database",
-    tags: ["Database"],
+    tags: [mt("Database")],
   },
   {
     id: "p192",
@@ -301,7 +310,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Medium",
     status: "todo",
     category: "Shell",
-    tags: ["Shell"],
+    tags: [mt("Shell")],
   },
   {
     id: "p1114",
@@ -312,7 +321,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Easy",
     status: "solved",
     category: "Concurrency",
-    tags: ["Concurrency"],
+    tags: [mt("Concurrency")],
   },
   {
     id: "p2620",
@@ -323,7 +332,7 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Easy",
     status: "solved",
     category: "JavaScript",
-    tags: ["JavaScript"],
+    tags: [mt("JavaScript")],
   },
   {
     id: "p2635",
@@ -334,6 +343,6 @@ export const MOCK_PROBLEMS: Problem[] = [
     difficulty: "Easy",
     status: "solved",
     category: "JavaScript",
-    tags: ["JavaScript"],
+    tags: [mt("JavaScript")],
   },
 ];

@@ -39,19 +39,11 @@ export async function forgetPassword(payload: ForgetPasswordPayload): Promise<Re
 }
 
 export async function loginWithGoogle(): Promise<{ error: any }> {
-  return await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    },
-  });
+  window.location.href = `${BASE_URL}/auth/oauth/google/login`;
+  return { error: null };
 }
 
 export async function loginWithGithub(): Promise<{ error: any }> {
-  return await supabase.auth.signInWithOAuth({
-    provider: "github",
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    },
-  });
+  window.location.href = `${BASE_URL}/auth/oauth/github/login`;
+  return { error: null };
 }

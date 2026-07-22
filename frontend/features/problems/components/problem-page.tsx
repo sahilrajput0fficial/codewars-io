@@ -213,7 +213,7 @@ export function ProblemDetailsFeature({ initialToken, slug: propSlug }: { initia
   useEffect(() => {
     fetchProblems()
       .then((data) => {
-        setSidebarProblems(data);
+        setSidebarProblems(data.items);
       })
       .catch((err) => {
         console.error("Error fetching problems for sidebar:", err);
@@ -600,16 +600,16 @@ export function ProblemDetailsFeature({ initialToken, slug: propSlug }: { initia
                             <span className="text-[9px] font-mono" style={{ color: "var(--color-text-secondary)" }}>
                               {p.acceptanceRate.toFixed(0)}% success
                             </span>
-                            {(p.tags || []).slice(0, 1).map((t: string) => (
+                            {(p.tags || []).slice(0, 1).map((t) => (
                               <span
-                                key={t}
+                                key={t.slug}
                                 className="text-[8px] font-mono px-1 rounded-sm"
                                 style={{
                                   background: "var(--color-surface-2)",
                                   color: "var(--color-text-secondary)",
                                 }}
                               >
-                                {t}
+                                {t.name}
                               </span>
                             ))}
                           </div>
@@ -800,9 +800,9 @@ export function ProblemDetailsFeature({ initialToken, slug: propSlug }: { initia
                   <Tag className="w-3 h-3" /> Tags
                 </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {(problem?.topic_tags || ["Array", "Dynamic Programming", "Matrix"]).map((tag) => (
-                    <span key={tag} className="px-2 py-0.5 text-[10px] font-mono text-cw-text-secondary border border-cw-border bg-cw-surface-2 rounded-full">
-                      {tag}
+                  {(problem?.tags ?? ["Array", "Dynamic Programming", "Matrix"].map((name) => ({ id: name, name, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"), count: 0 }))).map((tag) => (
+                    <span key={tag.slug} className="px-2 py-0.5 text-[10px] font-mono text-cw-text-secondary border border-cw-border bg-cw-surface-2 rounded-full">
+                      {tag.name}
                     </span>
                   ))}
                 </div>

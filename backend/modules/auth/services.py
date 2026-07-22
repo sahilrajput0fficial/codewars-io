@@ -104,6 +104,15 @@ def sync_supabase_oauth_user(
         session.refresh(user)
         return user
     
+    # Check if a user with this email already exists (linking conflict check)
+    email_stmt = select(User).where(User.email == email)
+    existing_user_by_email = session.exec(email_stmt).first()
+    if existing_user_by_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email already exists. Please log in using your password."
+        )
+    
     # If the user doesn't exist, create a new record.
     # Generate a unique username if none was provided or if it's already taken
     base_username: str = username or email.split("@")[0]
@@ -174,4 +183,51 @@ def exchange_supabase_token(session: Session, access_token: str) -> User:
         username=username,
         avatar_url=avatar_url
     )
+
+def sync_local_oauth_user(
+    session: Session, 
+    email: str, 
+    display_name: str, 
+    avatar_url: Optional[str] = None
+) -> User:
+    # 1. Check if user already exists by email
+    statement = select(User).where(User.email == email)
+    user = session.exec(statement).first()
+    
+    if user:
+        # Update details if they have changed or are unset
+        if display_name and not user.display_name:
+            user.display_name = display_name
+        if avatar_url and not user.avatar_url:
+            user.avatar_url = avatar_url
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user
+    
+    # 2. If new user, create a new record
+    # Generate unique username
+    base_username: str = email.split("@")[0]
+    final_username: str = base_username
+    counter: int = 1
+    
+    while True:
+        check_stmt = select(User).where(User.username == final_username)
+        if not session.exec(check_stmt).first():
+            break
+        final_username = f"{base_username}{counter}"
+        counter += 1
+        
+    db_user = User(
+        id=uuid.uuid4(),
+        username=final_username,
+        display_name=display_name,
+        email=email,
+        avatar_url=avatar_url,
+    )
+    session.add(db_user)
+    session.commit()
+    session.refresh(db_user)
+    return db_user
+
 

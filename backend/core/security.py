@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 import jwt
 from config import Credentials
-from fastapi import Cookie, HTTPException, status
+from fastapi import Cookie, Header, HTTPException, status
 
 ALGORITHM: str = "HS256"
 
@@ -49,21 +49,29 @@ def create_jwt(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) 
         expire: datetime = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt: str = jwt.encode(to_encode, Credentials.SUPER_SECRET_KEY, algorithm=ALGORITHM)
+    print(encoded_jwt)
     return encoded_jwt
 
 
 
 
-def verify_jwt(access_token: Optional[str] = Cookie(None)) -> Dict[str, Any]:
-    """if user visits a private route , this utility verifies his/her identity"""
-    if not access_token:
+def verify_jwt(
+    access_token: Optional[str] = Cookie(None),
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
+    """Verify JWT token from access_token cookie or Authorization header"""
+    token = access_token
+    if not token and authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="Not authenticated"
         )
     try:
         payload: Dict[str, Any] = jwt.decode(
-            access_token, 
+            token, 
             Credentials.SUPER_SECRET_KEY, 
             algorithms=[ALGORITHM]
         )

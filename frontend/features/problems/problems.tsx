@@ -1,18 +1,19 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import type { Problem, TopicTag, PromoBanner } from "./types";
-import { fetchPromoBanners, fetchTopicTags, fetchProblems } from "./services/problems-service";
+import type { Problem, ProblemList, TopicTag } from "./types";
+import { fetchProblems, fetchTags } from "./services/problems-service";
 //import { PromoBanners } from "./components/promo-banners";
 import { TagCloud } from "./components/tag-cloud";
 import { ProblemsTable } from "./components/problems-table";
 import { Search, ChevronDown, Award } from "lucide-react";
 
 export function ProblemsFeature() {
-  const [banners, setBanners] = useState<PromoBanner[]>([]);
   const [tags, setTags] = useState<TopicTag[]>([]);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const[totalProblems , setTotalProblems ] = useState(0);
+  const [totalSolved,setTotalSolved ] = useState(0);
 
   // Filter States
   const [activeCategory, setActiveCategory] = useState<string>("All Topics");
@@ -21,21 +22,12 @@ export function ProblemsFeature() {
   const [difficulty, setDifficulty] = useState<"All" | "Easy" | "Medium" | "Hard">("All");
   const [status, setStatus] = useState<"All" | "solved" | "attempted" | "todo">("All");
 
-  // Load initial banners and tags
+  // Load all tags from the dedicated /problems/tags/ endpoint once on mount.
+  // Tags are independent of filter state so we don't re-fetch on every filter change.
   useEffect(() => {
-    async function loadMetadata() {
-      try {
-        const [bannerData, tagData] = await Promise.all([
-          fetchPromoBanners(),
-          fetchTopicTags(),
-        ]);
-        setBanners(bannerData);
-        setTags(tagData);
-      } catch (err) {
-        console.error("Failed to load metadata", err);
-      }
-    }
-    loadMetadata();
+    fetchTags()
+      .then(setTags)
+      .catch((err) => console.error("Failed to load tags:", err));
   }, []);
 
   // Fetch problems when filter states change
@@ -43,14 +35,17 @@ export function ProblemsFeature() {
     async function loadProblems() {
       setIsLoading(true);
       try {
-        const data = await fetchProblems({
+         const data  = await fetchProblems({
           category: activeCategory,
           tag: selectedTag || undefined,
           search: searchVal || undefined,
           difficulty,
           status,
         });
-        setProblems(data);
+        setProblems(data?.items || []);
+        setTotalProblems(data?.total || 0);
+        setTotalSolved(data?.total || 0);
+        // Tags are loaded independently via fetchTags() above — no derivation needed here.
       } catch (err) {
         console.error("Failed to load problems", err);
       } finally {
@@ -64,8 +59,6 @@ export function ProblemsFeature() {
   const CATEGORIES = ["All Topics", "Algorithms", "Database", "Shell", "Concurrency", "JavaScript"];
 
   // Solved Stats (Local Mock)
-  const totalSolved = 525;
-  const totalProblems = 1757;
   const solvedPercentage = (totalSolved / totalProblems) * 100;
 
   return (

@@ -15,6 +15,6 @@ export { PromoBanners } from "./components/promo-banners";
 export { ProblemDetailsFeature } from "./components/problem-page";
 
 // Services
-export { fetchProblems, fetchTopicTags, fetchPromoBanners, fetchProblemBySlug } from "./services/problems-service";
+export { fetchProblems, fetchProblemBySlug, fetchTags } from "./services/problems-service";
 export type { FetchProblemsParams } from "./services/problems-service";
 

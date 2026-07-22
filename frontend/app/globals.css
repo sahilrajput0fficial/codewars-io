@@ -318,3 +318,8 @@ html {
   from { background-position: 0 0; }
   to { background-position: 100% 100%; }
 }
+/* Trigger HMR update - exact match for friendly fire image specification */
+
+
+
+

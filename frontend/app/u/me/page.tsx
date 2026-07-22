@@ -4,7 +4,6 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Navbar } from "@/components/layout/navbar";
 import ProfilePage from "@/features/auth/profile-page";
 import { fetchMyProfile } from "@/features/auth";
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 // ─── Metadata ─────────────────────────────────────────────────────────────────
@@ -17,20 +16,13 @@ export const metadata: Metadata = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function MyProfilePage() {
-  // Use the Supabase server client to check session — this correctly validates
-  // the full session (not just the raw access_token cookie), honouring token
-  // refreshes that the proxy middleware performed.
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/auth/login");
-  }
-
-  // Forward the full cookie header to FastAPI so it can validate the JWT
-  // (access_token, refresh_token, and any other Supabase cookies are included).
   const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
+  const hasAccessToken = cookieStore.has("access_token") || cookieStore.has("sb-access-token");
+
+  if (!hasAccessToken) {
+    redirect("/auth/login");
+  }
 
   const profile = await fetchMyProfile(cookieHeader);
   if (!profile) {

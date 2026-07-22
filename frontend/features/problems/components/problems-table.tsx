@@ -87,10 +87,10 @@ export function ProblemsTable({ problems, isLoading }: ProblemsTableProps) {
                   <div className="flex gap-1.5 mt-0.5">
                     {problem.tags.slice(0, 3).map((t) => (
                       <span
-                        key={t}
+                        key={t.slug}
                         className="text-[9px] text-cw-text-tertiary uppercase tracking-wider font-semibold"
                       >
-                        {t}
+                        {t.name}
                       </span>
                     ))}
                   </div>

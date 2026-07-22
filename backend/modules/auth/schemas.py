@@ -28,7 +28,6 @@ class ForgetPasswordSchema(BaseModel):
 class OAuthExchangeRequest(BaseModel):
     access_token: str
 
-
 #============= Response ===================#
 class UserPublic(BaseModel):
     """Public response model for user"""
@@ -50,3 +49,7 @@ class UserPublic(BaseModel):
     longest_win_streak : int | None = 0
     matches_played : int
     elo_tier : str
+
+class AuthResponse(BaseModel):
+    message: str
+    user: UserPublic

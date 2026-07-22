@@ -188,15 +188,14 @@ export default async function LeaderboardPage({
 }: {
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
-  // Use the Supabase server client for the auth guard — honours token refreshes
-  // that the proxy middleware performed, not just the raw access_token cookie.
-  const supabase = await createClient();
-  const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-  if (!supabaseUser) redirect("/auth/login");
-
-  // Forward the full cookie header to FastAPI for the authenticated /leaderboard/me call.
   const cookieStore = await cookies();
   const cookieHeader = cookieStore.toString();
+  const hasAccessToken = cookieStore.has("access_token") || cookieStore.has("sb-access-token");
+
+  // Auth guard: redirect to login if access_token cookie is missing
+  if (!hasAccessToken) {
+    redirect("/auth/login");
+  }
 
   const params = await searchParams;
   const sortBy = params.sort_by ?? "elo";
