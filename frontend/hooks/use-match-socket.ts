@@ -10,6 +10,7 @@ export interface UseMatchSocketOptions {
   onMatchStart?: (data: any) => void;
   onMatchAbandoned?: (data: any) => void;
   onMatchUpdate?: (data: any) => void;
+  onMatchEnd?: (data: any) => void;
 }
 
 export function useMatchSocket({
@@ -21,6 +22,7 @@ export function useMatchSocket({
   onMatchStart,
   onMatchAbandoned,
   onMatchUpdate,
+  onMatchEnd,
 }: UseMatchSocketOptions) {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
@@ -29,13 +31,15 @@ export function useMatchSocket({
   const onMatchStartRef = useRef(onMatchStart);
   const onMatchAbandonedRef = useRef(onMatchAbandoned);
   const onMatchUpdateRef = useRef(onMatchUpdate);
+  const onMatchEndRef = useRef(onMatchEnd);
 
   useEffect(() => {
     onMatchFoundRef.current = onMatchFound;
     onMatchStartRef.current = onMatchStart;
     onMatchAbandonedRef.current = onMatchAbandoned;
     onMatchUpdateRef.current = onMatchUpdate;
-  }, [onMatchFound, onMatchStart, onMatchAbandoned, onMatchUpdate]);
+    onMatchEndRef.current = onMatchEnd;
+  }, [onMatchFound, onMatchStart, onMatchAbandoned, onMatchUpdate, onMatchEnd]);
 
   const activeUserId = userId;
 
@@ -111,6 +115,10 @@ export function useMatchSocket({
       // 4. Match updates (submissions, score changes, solved problems)
       else if (parsed.event === "match.update") {
         onMatchUpdateRef.current?.(parsed);
+      }
+      // 5. Match ended (winner, ELO delta, final scores)
+      else if (parsed.event === "match.end" || parsed.event === "match_end") {
+        onMatchEndRef.current?.(parsed);
       }
     };
 
