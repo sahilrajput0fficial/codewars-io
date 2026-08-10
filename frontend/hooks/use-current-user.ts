@@ -10,23 +10,40 @@ export function useCurrentUser() {
   const setLoading = useUserStore((state) => state.setLoading);
 
   useEffect(() => {
-    // Only fetch if we don't have a user and aren't already loading
-    if (user || isLoading) return;
+    // If we already have a user object in state, no need to load again
+    if (user) return;
 
     let active = true;
 
     async function loadUser() {
       setLoading(true);
       try {
-        const response = await fetch(`${BASE_URL}/u/me`, {
+        let response = await fetch(`${BASE_URL}/u/me`, {
           credentials: "include",
         });
+
+        // If access token expired (401), attempt automatic token refresh
+        if (response.status === 401) {
+          const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
+            method: "POST",
+            credentials: "include",
+          });
+          if (refreshRes.ok) {
+            response = await fetch(`${BASE_URL}/u/me`, {
+              credentials: "include",
+            });
+          }
+        }
+
         if (response.ok && active) {
           const data = await response.json();
           setUser(mapBackendProfile(data));
+        } else if (!response.ok && active) {
+          setUser(null);
         }
       } catch (err) {
         console.error("Failed to load current user profile:", err);
+        if (active) setUser(null);
       } finally {
         if (active) {
           setLoading(false);
@@ -39,7 +56,7 @@ export function useCurrentUser() {
     return () => {
       active = false;
     };
-  }, [user, isLoading, setUser, setLoading]);
+  }, [user, setUser, setLoading]);
 
   return { user, isLoading };
 }

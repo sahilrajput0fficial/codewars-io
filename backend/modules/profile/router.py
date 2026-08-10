@@ -57,7 +57,16 @@ def update_profile(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Authenticated user not found"
         )
-    return update_user_profile(session, current_user, payload)
+    result = update_user_profile(session, current_user, payload)
+    
+    # Invalidate cache
+    try:
+        from core.cache import delete_cache_key
+        delete_cache_key(f"cache:profile:{current_user.id}")
+    except Exception as e:
+        print(f"Error invalidating profile cache: {e}")
+        
+    return result
 
 @router.get("/{username}", response_model=ProfileUserResponse)
 def get_user_profile(

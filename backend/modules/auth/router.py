@@ -2,34 +2,52 @@ import secrets
 import urllib.parse
 import urllib.request
 import json
+import uuid
 from datetime import timedelta
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, status, Response, HTTPException, Cookie
 from fastapi.responses import RedirectResponse
-from core.security import verify_jwt , create_jwt
-from sqlmodel import Session
+from sqlmodel import Session , select
 from db.session import get_session
 from config import Credentials
-from .schemas import UserLoginRequest, UserSignupRequest, ForgetPasswordSchema, OAuthExchangeRequest, AuthResponse, UserPublic
+from core.security import verify_jwt, create_access_token, create_refresh_token, ALGORITHM
+import jwt
+from .schemas import UserLoginRequest, UserSignupRequest, ForgetPasswordSchema, AuthResponse, UserPublic
 from .tables import User
-from .services import user_signup, user_login, user_forget_password, exchange_supabase_token, sync_local_oauth_user
+from .services import user_signup, user_login, user_forget_password, sync_local_oauth_user
 from .dependencies import get_current_user
-
-
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-def _set_jwt_cookie(response: Response, email: str) -> None:
-    token: str = create_jwt({"sub": email}, expires_delta=timedelta(days=365))
+def _set_auth_cookies(response: Response, user_id: str) -> None:
+    access_token = create_access_token({"sub": user_id})
+    refresh_token = create_refresh_token({"sub": user_id})
     is_production = Credentials.ENVIRONMENT == "production"
+
+    # Short-lived access token cookie (15 mins) - httponly=False so JS can read it for WS auth query param
     response.set_cookie(
         key="access_token",
-        value=token,
-        httponly=True,
-        max_age=365 * 24 * 60 * 60,  # 365 days in seconds
-        secure=is_production,                # Set to True in production with HTTPS
-        samesite="none" if is_production else "lax"
+        value=access_token,
+        httponly=False,
+        max_age=15 * 60,
+        secure=is_production,
+        samesite="none" if is_production else "lax",
+        path="/"
     )
+
+    # Long-lived refresh token cookie (7 days)
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        max_age=7 * 24 * 60 * 60,
+        secure=is_production,
+        samesite="none" if is_production else "lax",
+        path="/"
+    )
+
+def _set_jwt_cookie(response: Response, user_id: str) -> None:
+    _set_auth_cookies(response, user_id)
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED, response_model=AuthResponse)
 def signup(
@@ -38,7 +56,7 @@ def signup(
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:
     user: User = user_signup(session=session, payload=payload)
-    _set_jwt_cookie(response=response, email=user.email)
+    _set_auth_cookies(response=response, user_id=str(user.id))
     return {"message": "User created successfully", "user": user}
 
 @router.post("/login", response_model=AuthResponse)
@@ -48,18 +66,65 @@ def login(
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:
     user: User = user_login(session=session, payload=payload)
-    _set_jwt_cookie(response=response, email=user.email)
+    _set_auth_cookies(response=response, user_id=str(user.id))
     return {"message": "Login successful", "user": user}
+
+@router.post("/refresh", response_model=AuthResponse)
+def refresh_token_endpoint(
+    response: Response,
+    refresh_token: str | None = Cookie(None),
+    session: Session = Depends(get_session)
+) -> Dict[str, Any]:
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token missing"
+        )
+
+    try:
+        payload = jwt.decode(
+            refresh_token,
+            Credentials.SUPER_SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        if payload.get("type") != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type for refresh"
+            )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token expired"
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+
+    user_id = payload.get("sub")
+    user = session.get(User, user_id) if user_id else None
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User profile not found"
+        )
+
+    _set_auth_cookies(response=response, user_id=str(user.id))
+    return {"message": "Token refreshed successfully", "user": user}
 
 @router.post("/logout")
 def logout(response: Response) -> Dict[str, str]:
     is_production = Credentials.ENVIRONMENT == "production"
-    response.delete_cookie(
-        key="access_token",
-        httponly=True,
-        secure=is_production,
-        samesite="none" if is_production else "lax"
-    )
+    for cookie_key in ("access_token", "refresh_token"):
+        response.delete_cookie(
+            key=cookie_key,
+            httponly=True,
+            secure=is_production,
+            samesite="none" if is_production else "lax",
+            path="/"
+        )
     return {"message": "Logged out successfully"}
 
 @router.post("/forget-pass", response_model=AuthResponse)
@@ -69,27 +134,8 @@ def forget_pass(
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:
     user: User = user_forget_password(session=session, payload=payload)
-    is_production = Credentials.ENVIRONMENT == "production"
-    # Clear old cookie first
-    response.delete_cookie(
-        key="access_token",
-        httponly=True,
-        secure=is_production,
-        samesite="none" if is_production else "lax"
-    )
-    # Set new cookie with updated user info
-    _set_jwt_cookie(response=response, email=user.email)
+    _set_auth_cookies(response=response, user_id=str(user.id))
     return {"message": "Password reset successfully", "user": user}
-
-@router.post("/exchange", response_model=AuthResponse)
-def exchange(
-    payload: OAuthExchangeRequest, 
-    response: Response, 
-    session: Session = Depends(get_session)
-) -> Dict[str, Any]:
-    user: User = exchange_supabase_token(session=session, access_token=payload.access_token)
-    _set_jwt_cookie(response=response, email=user.email)
-    return {"message": "OAuth login successful", "user": user}
 
 @router.get("/me", response_model=UserPublic)
 def get_me(
@@ -207,7 +253,7 @@ def google_callback(
     # 4. Set session cookie and redirect to dashboard
     redirect_url = f"{Credentials.FRONTEND_URL}/dashboard" if Credentials.FRONTEND_URL else "/dashboard"
     final_response = RedirectResponse(url=redirect_url)
-    _set_jwt_cookie(response=final_response, email=user.email)
+    _set_jwt_cookie(response=final_response, user_id=str(user.id))
     return final_response
 
 
@@ -347,5 +393,5 @@ def github_callback(
     # 5. Set session cookie and redirect to dashboard
     redirect_url = f"{Credentials.FRONTEND_URL}/dashboard" if Credentials.FRONTEND_URL else "/dashboard"
     final_response = RedirectResponse(url=redirect_url)
-    _set_jwt_cookie(response=final_response, email=user.email)
+    _set_jwt_cookie(response=final_response, user_id=str(user.id))
     return final_response

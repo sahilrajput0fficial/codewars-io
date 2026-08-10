@@ -14,6 +14,9 @@ class ProblemDifficulty(str, Enum):
     easy   = "easy"
     medium = "medium"
     hard   = "hard"
+    extreme = "extreme"
+    hardcore = "hardcore"
+    
 
 
 # ── ProblemTagLink (join table) ────────────────────────────────────────────────

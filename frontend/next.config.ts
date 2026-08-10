@@ -4,5 +4,7 @@ if (process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_ENVIRONMENT
   throw new Error("Build aborted: NEXT_PUBLIC_ENVIRONMENT must be set to 'production' in production builds.");
 }
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  reactStrictMode: false, // temporarily, to isolate the double-mount behavior
+};
 export default nextConfig;

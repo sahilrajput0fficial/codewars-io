@@ -38,10 +38,10 @@ import {
   DEMO_LEADERBOARD,
 } from "@/features/match/constants";
 import { FriendlyFireCard } from "@/features/match/components/FriendlyFireCard";
+import { MatchmakingQueue } from "@/features/match/components/MatchmakingQueue";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { useMatchSocket } from "@/hooks/use-match-socket";
 
-
-/* ─── Demo constants ─────────────────────────────────────────────────────── */
-const DEMO_USER_ELO = 1050;
 
 /* ─── Live-status dot (DESIGN.md §10.2) ─────────────────────────────────── */
 function LiveDot({ color = "var(--color-success)" }: { color?: string }) {
@@ -63,13 +63,42 @@ function LiveDot({ color = "var(--color-success)" }: { color?: string }) {
 /*  Main Page                                                                  */
 /* ─────────────────────────────────────────────────────────────────────────── */
 
+import { useSearchParams, useRouter } from "next/navigation";
+
 export default function PlayPage() {
-  const [selectedId, setSelectedId] = useState("mumbai");
+  return (
+    <React.Suspense fallback={<div className="p-8 text-xs font-mono text-zinc-500">Loading arena...</div>}>
+      <PlayPageContent />
+    </React.Suspense>
+  );
+}
+
+function PlayPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, isLoading } = useCurrentUser();
+
+  const arenaParam = searchParams.get("arena")?.toLowerCase();
+  const initialArena = ARENA_LEVELS.find((a) => a.id === arenaParam)?.id || "kabul";
+
+  const [selectedId, setSelectedId] = useState(initialArena);
   const [isQueuing, setIsQueuing] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>(
     Object.fromEntries(ARENA_LEVELS.map((a) => [a.id, a.onlinePlayers]))
   );
   const [ticking, setTicking] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (arenaParam && ARENA_LEVELS.some((a) => a.id === arenaParam)) {
+      setSelectedId(arenaParam);
+    }
+  }, [arenaParam]);
+
+  const handleSelectArena = (arenaId: string) => {
+    const lowerId = arenaId.toLowerCase();
+    setSelectedId(lowerId);
+    router.replace(`/play?arena=${lowerId}`, { scroll: false });
+  };
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -86,7 +115,7 @@ export default function PlayPage() {
   }, []);
 
   const totalOnline = Object.values(counts).reduce((a, b) => a + b, 0);
-  const selected = ARENA_LEVELS.find((a) => a.id === selectedId)!;
+  const selected = ARENA_LEVELS.find((a) => a.id === selectedId) || ARENA_LEVELS[0];
 
   return (
     <div
@@ -140,10 +169,16 @@ export default function PlayPage() {
 
           {isQueuing ? (
             /* ── Queue overlay ─────────────────────────────────────────── */
-            <QueueOverlay
+            <MatchmakingQueue
               arena={selected}
-              count={counts[selected.id] ?? selected.onlinePlayers}
               onCancel={() => setIsQueuing(false)}
+              onPlayVsBot={() => {
+                alert("Navigating to Bot Match...");
+                setIsQueuing(false);
+              }}
+              onMatchFound={(matchId) => {
+                window.location.href = `/match/${matchId}`;
+              }}
             />
           ) : (
             <>
@@ -157,11 +192,17 @@ export default function PlayPage() {
                     key={arena.id}
                     arena={arena}
                     isSelected={selectedId === arena.id}
-                    isLocked={DEMO_USER_ELO < arena.eloMin}
+                    isLocked={user ? user.elo < arena.eloMin : false}
                     liveCount={counts[arena.id] ?? arena.onlinePlayers}
                     isTicking={ticking === arena.id}
-                    onSelect={() => setSelectedId(arena.id)}
-                    onFindMatch={() => setIsQueuing(true)}
+                    onSelect={() => handleSelectArena(arena.id)}
+                    onFindMatch={() => {
+                      if (!user && !isLoading) {
+                        window.location.href = "/auth/login";
+                        return;
+                      }
+                      setIsQueuing(true);
+                    }}
                     animDelay={idx * 70}
                   />
                 ))}

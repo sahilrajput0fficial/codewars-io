@@ -13,6 +13,7 @@ from .schemas import (
     UserRankResponse,
 )
 from core.utils import generate_hateoas_links
+from core.cache import get_cached_object , set_cached_object
 
 # ─────────────────────────────────────────────
 #  Helpers
@@ -53,17 +54,12 @@ def get_global_leaderboard_service(
     session: Session,
     query: LeaderboardGlobalRequest,
 ) -> LeaderboardListResponse:
-    """Return a paginated, ranked leaderboard list.
-
-    Uses a single SQL RANK() window function so every user's absolute rank
-    is computed in the database — no N+1 problem.
-
-    SQL emitted (conceptually):
-        SELECT *, RANK() OVER (ORDER BY <col> <dir>) AS rank
-        FROM users
-        ORDER BY <col> <dir>
-        LIMIT ? OFFSET ?
-    """
+    """Return a paginated, ranked leaderboard list."""
+    cache_key = f"cache:leaderboard:global:{query.sort_by.value}:{query.sort_order}:{query.limit}:{query.offset}:{query.q or ''}"
+   
+    cached = get_cached_object(cache_key, LeaderboardListResponse)
+    if cached:
+        return cached
     column = getattr(User, query.sort_by.value)
 
     # ── Window-function ordering ────────────────────────────────────────
@@ -127,7 +123,7 @@ def get_global_leaderboard_service(
 
     links = generate_hateoas_links(total=total, limit=query.limit, offset=query.offset)
 
-    return LeaderboardListResponse(
+    res = LeaderboardListResponse(
         total=total,
         limit=query.limit,
         offset=query.offset,
@@ -136,6 +132,8 @@ def get_global_leaderboard_service(
         total_global=total_global,
         links=links,
     )
+    set_cached_object(cache_key, res, ttl=30)
+    return res
 
 
 
@@ -148,8 +146,15 @@ def get_leaderboard_me_service(
     sort_by: SortBy,
 ) -> LeaderboardMeResponse:
     """Return the authenticated user's own leaderboard rank and public stats."""
+    cache_key = f"cache:leaderboard:me:{user.id}:{sort_by.value}"
+    cached = get_cached_object(cache_key, LeaderboardMeResponse)
+    if cached:
+        return cached
+
     rank = _compute_rank(session, user, sort_by)
-    return LeaderboardMeResponse(**user.model_dump(), rank=rank)
+    res = LeaderboardMeResponse(**user.model_dump(), rank=rank)
+    set_cached_object(cache_key, res, ttl=30)
+    return res
 
 
 def get_user_rank_service(
@@ -158,6 +163,11 @@ def get_user_rank_service(
     sort_by: SortBy,
 ) -> UserRankResponse:
     """Return the public leaderboard profile and rank of any user by UUID."""
+    cache_key = f"cache:leaderboard:rank:{user_id}:{sort_by.value}"
+    cached = get_cached_object(cache_key, UserRankResponse)
+    if cached:
+        return cached
+
     user: User | None = session.get(User, user_id)
     if not user:
         raise HTTPException(
@@ -165,5 +175,7 @@ def get_user_rank_service(
             detail=f"User with id '{user_id}' not found.",
         )
     rank = _compute_rank(session, user, sort_by)
-    return UserRankResponse(**user.model_dump(), rank=rank)
+    res = UserRankResponse(**user.model_dump(), rank=rank)
+    set_cached_object(cache_key, res, ttl=30)
+    return res
 

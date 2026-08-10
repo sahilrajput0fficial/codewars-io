@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 import jwt
 from config import Credentials
-from fastapi import Cookie, Header, HTTPException, status
+from fastapi import Cookie, Header, HTTPException, status 
 
 ALGORITHM: str = "HS256"
 
@@ -40,17 +40,24 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 
-def create_jwt(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """if user login verified , then this utility provides a jwt"""
+def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """Creates short-lived access token (default 15 minutes)"""
     to_encode: Dict[str, Any] = data.copy()
-    if expires_delta:
-        expire: datetime = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire: datetime = datetime.now(timezone.utc) + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt: str = jwt.encode(to_encode, Credentials.SUPER_SECRET_KEY, algorithm=ALGORITHM)
-    print(encoded_jwt)
-    return encoded_jwt
+    expire: datetime = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=15))
+    to_encode.update({"exp": expire, "type": "access"})
+    return jwt.encode(to_encode, Credentials.SUPER_SECRET_KEY, algorithm=ALGORITHM)
+
+def create_refresh_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """Creates long-lived refresh token (default 7 days)"""
+    to_encode: Dict[str, Any] = data.copy()
+    expire: datetime = datetime.now(timezone.utc) + (expires_delta or timedelta(days=7))
+    to_encode.update({"exp": expire, "type": "refresh"})
+    return jwt.encode(to_encode, Credentials.SUPER_SECRET_KEY, algorithm=ALGORITHM)
+
+def create_jwt(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """Alias for create_access_token for backward compatibility"""
+    return create_access_token(data, expires_delta)
+
 
 
 
@@ -69,6 +76,7 @@ def verify_jwt(
             status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="Not authenticated"
         )
+
     try:
         payload: Dict[str, Any] = jwt.decode(
             token, 
@@ -86,3 +94,5 @@ def verify_jwt(
             status_code=status.HTTP_401_UNAUTHORIZED, 
             detail="Invalid token"
         )
+
+

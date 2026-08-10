@@ -3,7 +3,7 @@ import uuid
 import datetime
 from modules.auth.schemas import UserPublic
 from core.schemas import BulkGetRequest
-from modules.matches.schemas import MatchMode, MatchStatus
+from modules.matches.schemas import Match_Mode, Match_Status
 from typing import Any, Dict, List
 
 
@@ -38,8 +38,8 @@ class UserMatchResponse(BaseModel):
     player_one: MatchOpponentPublic
     player_two: MatchOpponentPublic | None = None
     bot_elo: int | None = None
-    mode: MatchMode
-    status: MatchStatus
+    mode: Match_Mode
+    status: Match_Status
     problem_ids: List[uuid.UUID]
     difficulty_config: Dict[str, Any]
     winner_id: uuid.UUID | None = None

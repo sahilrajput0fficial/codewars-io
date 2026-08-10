@@ -11,12 +11,16 @@ class Settings(BaseSettings):
     SUPABASE_URL: Optional[str] = None
     GCP_CLIENT_ID: Optional[str] = None
     GCP_ClIENT_SECRET: Optional[str] = None
+    ASYNC_DATABASE_URL : str
     GITHUB_CLIENT_ID: Optional[str] = None
     GITHUB_CLIENT_SECERT: Optional[str] = None
     FRONTEND_URL: str | None = None
     JUDGE0_URL : str | None = None 
     RAPIDAPI_KEY : str | None = None
     RAPIDAPI_HOST: str| None 
+    REDIS_HOST : str | None = "localhost"
+    REDIS_PORT : int | None = 6379
+    REDIS_PASSWORD : str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

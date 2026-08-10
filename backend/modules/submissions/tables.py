@@ -1,8 +1,10 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import uuid
-from sqlmodel import Field, SQLModel
+from sqlmodel import AutoString, Field, SQLModel
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
 
 class ProgrammingLanguage(str, Enum):
@@ -41,8 +43,6 @@ class Submission(SQLModel, table=True):
     source_code: str = Field(nullable=False)
     verdict: SubmissionVerdict = Field(
         default=SubmissionVerdict.pending,
-        nullable=False,
-        index=True,
     )
     runtime_ms: Optional[int] = Field(default=None, nullable=True)
     memory_kb: Optional[int] = Field(default=None, nullable=True)
@@ -58,3 +58,7 @@ class Submission(SQLModel, table=True):
         index=True,
     )
     judged_at: Optional[datetime] = Field(default=None, nullable=True)
+    breakdown: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        sa_column=Column(ARRAY(JSONB), nullable=True),
+    )

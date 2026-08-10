@@ -179,6 +179,14 @@ def list_problems(
     tag: Optional[str] = None,    # now matches problem_tags.slug
     q: Optional[str] = None,
 ) -> ProblemListResponse:
+    diff_val = difficulty.value if (difficulty and hasattr(difficulty, "value")) else str(difficulty or "")
+    cache_key = f"cache:problems:list:{limit}:{offset}:{diff_val}:{tag or ''}:{q or ''}"
+    
+    from core.cache import get_cached_object
+    cached = get_cached_object(cache_key, ProblemListResponse)
+    if cached:
+        return cached
+
     statement = select(Problem)
 
     if difficulty:
@@ -214,11 +222,20 @@ def list_problems(
         ]
         items.append(item)
 
-    return ProblemListResponse(total=total, limit=limit, offset=offset, items=items)
+    res = ProblemListResponse(total=total, limit=limit, offset=offset, items=items)
+    from core.cache import set_cached_object
+    set_cached_object(cache_key, res, ttl=300)
+    return res
 
 
 def get_problem(session: Session, slug: str) -> ProblemResponse:
     """Public detail — excludes editorial; only returns sample test cases."""
+    cache_key = f"cache:problems:detail:{slug}"
+    from core.cache import get_cached_object, set_cached_object
+    cached = get_cached_object(cache_key, ProblemResponse)
+    if cached:
+        return cached
+
     problem = _get_problem_by_slug_or_404(session, slug)
 
     sample_cases_stmt = (
@@ -236,6 +253,8 @@ def get_problem(session: Session, slug: str) -> ProblemResponse:
     response.sample_test_cases = [
         TestCasePublicResponse.model_validate(tc) for tc in sample_cases
     ]
+    
+    set_cached_object(cache_key, response, ttl=300)
     return response
 
 

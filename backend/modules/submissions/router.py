@@ -1,9 +1,9 @@
 from typing import List, Optional , Annotated
 import uuid
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status , Request
 from sqlmodel import Session
 from .schemas import Environment
-from db.session import get_session
+from db.session import get_session , get_session_async
 from modules.auth.dependencies import get_current_user
 from modules.auth.tables import User
 from .tables import Submission
@@ -13,6 +13,7 @@ from .schemas import (
     SubmissionListItem,
     SubmissionListResponse,
 )
+from sqlalchemy.ext.asyncio import AsyncSession
 from .services import create_and_evaluate_submission, list_submissions_query
 
 router = APIRouter(prefix="/submissions", tags=["submissions"])
@@ -20,9 +21,10 @@ router = APIRouter(prefix="/submissions", tags=["submissions"])
 
 @router.post("/", response_model=SubmissionResponse, status_code=status.HTTP_201_CREATED)
 async def submit_code_route(
+    request : Request , 
     env : Annotated[Environment , Query()] , 
     payload: SubmissionCreate,
-    session: Session = Depends(get_session),
+    session: Annotated[AsyncSession, Depends(get_session_async)],
     current_user: User = Depends(get_current_user),
 ) -> SubmissionResponse:
     """
@@ -31,6 +33,7 @@ async def submit_code_route(
     calculates runtime, memory usage, score, and updates DB record.
     """
     submission, test_cases = await create_and_evaluate_submission(
+        request = request , 
         session=session,
         user_id=current_user.id,
         problem_id=payload.problem_id,
@@ -89,4 +92,7 @@ def get_submission_route(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Submission {submission_id} not found."
         )
-    return SubmissionResponse.model_validate(submission)
+    response = SubmissionResponse.model_validate(submission)
+    if submission.breakdown:
+        response.test_cases = submission.breakdown
+    return response

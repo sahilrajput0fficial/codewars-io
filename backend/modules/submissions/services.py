@@ -9,6 +9,15 @@ from .schemas import Environment
 from config import Credentials
 from modules.problems.tables import TestCase
 from .tables import Submission, ProgrammingLanguage, SubmissionVerdict
+from core.schemas import DifficultyScore
+from modules.matches.tables import Matches
+from modules.problems.tables import Problem, ProblemDifficulty
+from core.connection_manager import manager
+from modules.matches.services import send_paired_event
+from fastapi import APIRouter, Depends, Request
+
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 
 # helper to convert into base64 or decode it
 class Conversion:
@@ -144,7 +153,7 @@ def compute_test_breakdown(
             first_failed_leaked = True
 
         breakdown.append({
-            "test_case_id": tc.id,
+            "test_case_id": str(tc.id),
             "order_index": tc.order_index,
             "passed": passed,
             "input": tc.input if leak_details else None,
@@ -155,17 +164,18 @@ def compute_test_breakdown(
     return passed_count, breakdown
 
 
+
 # ── Submission workflow ───────────────────────────────────────────────────
 
 async def create_and_evaluate_submission(
-    env : Environment,
-    session: Session,
+    env: Environment,
+    session: AsyncSession,
     user_id: uuid.UUID,
+    request: Request,
     problem_id: uuid.UUID,
     language: ProgrammingLanguage,
     source_code: str,
     match_id: Optional[uuid.UUID] = None,
-    
 ) -> tuple[Submission, List[Dict[str, Any]]]:
     # 1. Create a pending submission row
     submission = Submission(
@@ -177,127 +187,21 @@ async def create_and_evaluate_submission(
         verdict=SubmissionVerdict.pending,
     )
     session.add(submission)
-    session.commit()
-    session.refresh(submission)
+    await session.commit()
+    await session.refresh(submission)
 
-    # 2. Fetch test cases
-    if env == Environment.sample:
-        test_cases_stmt = (
-            select(TestCase)
-            .where(TestCase.problem_id == problem_id, TestCase.is_sample == True)
-            .order_by(TestCase.order_index)
-        )
-    else:
-        test_cases_stmt = (
-            select(TestCase)
-            .where(TestCase.problem_id == problem_id, TestCase.is_sample == False)
-            .order_by(TestCase.order_index)
-        ) 
-    
-    test_cases = list(session.exec(test_cases_stmt).all())
-    submission.total_testcases = len(test_cases)
+    env_val = env.value if hasattr(env, "value") else str(env)
 
-    if not test_cases:
-        submission.verdict = SubmissionVerdict.accepted
-        submission.judged_at = datetime.utcnow()
-        session.add(submission)
-        session.commit()
-        session.refresh(submission)
-        return submission, []
+    queue_key = "match_submissions" if submission.match_id is not None else "practice_submissions"
+    await request.app.state.arq_pool.enqueue_job(
+        "evaluate_submission",
+        submission.id,
+        env_val,
+        _queue_name=queue_key,
+    )
 
-    lang_id = LANGUAGE_TO_JUDGE0_ID.get(language, 71)
-    combined_stdin = build_combined_stdin(test_cases)
-    combined_expected = build_combined_expected(test_cases)
-
-    _breakdown = []
-    try:
-        # 3. One Judge0 call for the entire test set
-        token = await submit_code(
-            source_code=source_code,
-            language_id=lang_id,
-            stdin=combined_stdin,
-            expected_output=combined_expected,
-        )
-        submission.judge0_token = token
-        session.add(submission)
-        session.commit()
-
-        # 4. Poll until done (max ~15s)
-        result: Dict[str, Any] = {}
-        for _ in range(30):
-            result = await get_result(token)
-            status_id = result.get("status", {}).get("id", 13)
-            if status_id not in PENDING_STATUS_IDS:
-                break
-            await asyncio.sleep(0.5)
-
-        status_id = result.get("status", {}).get("id", 13)
-        actual_stdout = convert.decode_base64_safe(result.get("stdout"))
-        compile_output = convert.decode_base64_safe(result.get("compile_output")) or None
-        stderr = convert.decode_base64_safe(result.get("stderr")) or None
-        runtime_ms = int(float(result.get("time") or 0.0) * 1000)
-        memory_kb = int(result.get("memory") or 0)
-
-        # 5. Determine verdict
-        if status_id == 6:
-            final_verdict = SubmissionVerdict.compilation_error
-            passed_count = 0
-        elif status_id == 5:
-            final_verdict = SubmissionVerdict.time_limit_exceeded
-            passed_count, _breakdown = compute_test_breakdown(
-                actual_stdout, combined_expected, test_cases
-            )
-        elif status_id in (7, 8, 9, 10, 11, 12, 14):
-            final_verdict = SubmissionVerdict.runtime_error
-            passed_count, _breakdown = compute_test_breakdown(
-                actual_stdout, combined_expected, test_cases
-            )
-        elif status_id == 3:
-            # Judge0 says the whole blob matched — still reconstruct
-            # breakdown for per-test-case UI display
-            passed_count, _breakdown = compute_test_breakdown(
-                actual_stdout, combined_expected, test_cases
-            )
-            final_verdict = SubmissionVerdict.accepted
-        else:
-            # status 4 (Wrong Answer) or anything else unmapped
-            passed_count, _breakdown = compute_test_breakdown(
-                actual_stdout, combined_expected, test_cases
-            )
-            final_verdict = (
-                SubmissionVerdict.accepted
-                if passed_count == len(test_cases)
-                else SubmissionVerdict.wrong_answer
-            )
-
-        total_cases = len(test_cases)
-        score = int((passed_count / total_cases) * 100) if total_cases > 0 else 0
-
-        # 6. Update submission row
-        submission.verdict = final_verdict
-        submission.passed_testcases = passed_count
-        submission.runtime_ms = runtime_ms
-        submission.memory_kb = memory_kb
-        submission.compile_output = compile_output
-        submission.stderr = stderr
-        submission.score = score
-        submission.judged_at = datetime.utcnow()
-
-        session.add(submission)
-        session.commit()
-        session.refresh(submission)
-
-    except Exception as e:
-        print(f"Error executing submission: {e}")
-        submission.verdict = SubmissionVerdict.runtime_error
-        submission.stderr = str(e)
-        submission.judged_at = datetime.utcnow()
-        session.add(submission)
-        session.commit()
-        session.refresh(submission)
-
-    return submission, _breakdown
-
+    return submission, []
+   
 
 # ── Submissions listing queries ──────────────────────────────────────────────
 

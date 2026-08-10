@@ -41,3 +41,12 @@ class MatchLevel(Enum):
     extreme = "extreme"
     impossible = "impossible"
     custom = "custom"
+
+
+
+class DifficultyScore(Enum):
+    easy = 2
+    medium = 4
+    hard = 7
+    extreme = 10
+    hardcore = 15

@@ -48,6 +48,29 @@ export interface SubmissionResult {
  */
 
 
+export async function getSubmission(submissionId: string): Promise<SubmissionResult> {
+  const res = await fetch(`${BASE_URL}/submissions/${submissionId}`, {
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to fetch submission (${res.status}): ${text}`);
+  }
+  return res.json();
+}
+
+export async function pollSubmissionResult(submissionId: string): Promise<SubmissionResult> {
+  const maxAttempts = 20; // 20 * 500ms = 10s max timeout
+  for (let i = 0; i < maxAttempts; i++) {
+    const sub = await getSubmission(submissionId);
+    if (sub.verdict !== "pending") {
+      return sub;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return getSubmission(submissionId);
+}
+
 export async function runCode(
   payload: SubmissionRequest
 ): Promise<SubmissionResult> {
@@ -63,7 +86,11 @@ export async function runCode(
     throw new Error(`Submission failed (${res.status}): ${text}`);
   }
 
-  return res.json();
+  const initial: SubmissionResult = await res.json();
+  if (initial.verdict === "pending") {
+    return pollSubmissionResult(initial.id);
+  }
+  return initial;
 }
 
 
@@ -82,7 +109,11 @@ export async function submitCode(
     throw new Error(`Submission failed (${res.status}): ${text}`);
   }
 
-  return res.json();
+  const initial: SubmissionResult = await res.json();
+  if (initial.verdict === "pending") {
+    return pollSubmissionResult(initial.id);
+  }
+  return initial;
 }
 
 /** Convert backend verdict → frontend TestStatus display */

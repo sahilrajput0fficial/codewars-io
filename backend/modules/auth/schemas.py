@@ -25,9 +25,6 @@ class ForgetPasswordSchema(BaseModel):
     username: str
     new_password: str
 
-class OAuthExchangeRequest(BaseModel):
-    access_token: str
-
 #============= Response ===================#
 class UserPublic(BaseModel):
     """Public response model for user"""

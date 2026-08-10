@@ -1,8 +1,22 @@
-import { updateSession } from "@/lib/supabase/proxy";
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
-  return await updateSession(request);
+  const hasAuthToken =
+    request.cookies.has("access_token") || request.cookies.has("refresh_token");
+
+  const isProtectedRoute =
+    request.nextUrl.pathname.startsWith("/play") ||
+    request.nextUrl.pathname.startsWith("/leaderboard") ||
+    request.nextUrl.pathname.startsWith("/dashboard") ||
+    request.nextUrl.pathname.startsWith("/match");
+
+  if (isProtectedRoute && !hasAuthToken) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/login";
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {

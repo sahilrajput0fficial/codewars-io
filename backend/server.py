@@ -5,16 +5,34 @@ from modules.leaderboard.router import router as leaderboard_router
 from modules.profile.router import router as profile_router
 from modules.problems.router import router as problems_router
 from modules.submissions.router import router as submissions_router
+from modules.matches.router import router as matches_router 
 import uvicorn
 from sqlmodel import Session , SQLModel
+from contextlib import asynccontextmanager
+from arq import create_pool
+from jobs.settings import REDIS_SETTINGS
 from db.session import  engine
 from config import Credentials
+
+@asynccontextmanager
+async def lifespan(app : FastAPI ):
+    app.state.arq_pool = await create_pool(REDIS_SETTINGS)
+    yield
+    await app.state.arq_pool.close()
+
 
 app = FastAPI(
     title="CodeWars.IO API",
     description="Backend service for CodeWars.IO",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
+
+
+
+
+
+
 
 origins = ["http://localhost:3000"]
 if Credentials.FRONTEND_URL not in origins:
@@ -33,6 +51,7 @@ app.include_router(leaderboard_router)
 app.include_router(profile_router)
 app.include_router(problems_router)
 app.include_router(submissions_router)
+app.include_router(matches_router)
 
 @app.get("/")
 def read_root() -> dict[str, str]:
