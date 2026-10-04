@@ -2,6 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Swords, ArrowRight } from "lucide-react";
 import { BASE_URL, apiFetch } from "@/lib/api-client";
 import { LogoutButton } from "@/components/logout-button";
 
@@ -51,7 +53,16 @@ export default async function DashboardPage() {
           <p className="text-xs text-neutral-400">Welcome to your CodeWars dashboard.</p>
         </div>
 
-        <div className="pt-2 relative z-10 w-full">
+        <div className="pt-2 relative z-10 w-full space-y-2">
+          <Link
+            href="/play"
+            className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-500 text-white font-mono text-xs font-bold uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 transition-all duration-150 shadow-[0_0_20px_rgba(224,70,70,0.3)] active:scale-95"
+          >
+            <Swords size={16} />
+            <span>Go to Playground</span>
+            <ArrowRight size={14} className="ml-auto opacity-70" />
+          </Link>
+
           <LogoutButton className="w-full" />
         </div>
       </div>
