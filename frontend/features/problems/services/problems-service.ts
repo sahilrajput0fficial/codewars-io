@@ -1,5 +1,5 @@
 import type { Problem, ProblemList, TopicTag, PromoBanner } from "../types";
-import { BASE_URL } from "@/lib/api-client";
+import { BASE_URL, apiFetch } from "@/lib/api-client";
 import { MOCK_PROBLEMS } from "../constants";
 
 // ─── Tag API ──────────────────────────────────────────────────────────────────
@@ -13,9 +13,9 @@ import { MOCK_PROBLEMS } from "../constants";
  *
  * Called once on mount in ProblemsFeature; not re-fetched on filter changes.
  */
-export async function fetchTags(): Promise<TopicTag[]> {
-  const res = await fetch(`${BASE_URL}/problems/tags/`, {
-    credentials: "include",
+export async function fetchTags(cookieHeader?: string): Promise<TopicTag[]> {
+  const res = await apiFetch(`${BASE_URL}/problems/tags/`, {
+    cookieHeader,
     next: { revalidate: 60 }, // cache for 60 s — tags change infrequently
   });
   if (!res.ok) {
@@ -49,7 +49,10 @@ export interface FetchProblemsParams {
   status?:    "solved" | "attempted" | "todo" | "All";
 }
 
-export async function fetchProblems(params: FetchProblemsParams = {}): Promise<ProblemList> {
+export async function fetchProblems(
+  params: FetchProblemsParams = {},
+  cookieHeader?: string
+): Promise<ProblemList> {
   const queryParams = new URLSearchParams();
   queryParams.set("limit", "100");
 
@@ -64,8 +67,8 @@ export async function fetchProblems(params: FetchProblemsParams = {}): Promise<P
     queryParams.set("q", params.search);
   }
 
-  const res = await fetch(`${BASE_URL}/problems/?${queryParams.toString()}`, {
-    credentials: "include",
+  const res = await apiFetch(`${BASE_URL}/problems/?${queryParams.toString()}`, {
+    cookieHeader,
     next: { revalidate: 0 },
   });
   if (!res.ok) {
@@ -160,9 +163,13 @@ const MOCK_PROBLEM_DETAIL: FetchProblemDetailResponse = {
   ],
 };
 
-export async function fetchProblemBySlug(slug: string): Promise<FetchProblemDetailResponse> {
+export async function fetchProblemBySlug(
+  slug: string,
+  cookieHeader?: string
+): Promise<FetchProblemDetailResponse> {
   try {
-    const res = await fetch(`${BASE_URL}/problems/${slug}`, {
+    const res = await apiFetch(`${BASE_URL}/problems/${slug}`, {
+      cookieHeader,
       // Don't cache — editors need to see updates immediately
       next: { revalidate: 0 },
     });

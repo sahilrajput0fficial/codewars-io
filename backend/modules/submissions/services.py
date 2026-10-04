@@ -205,8 +205,8 @@ async def create_and_evaluate_submission(
 
 # ── Submissions listing queries ──────────────────────────────────────────────
 
-def list_submissions_query(
-    session: Session,
+async def list_submissions_query(
+    session: AsyncSession,
     user_id: Optional[uuid.UUID] = None,
     problem_id: Optional[uuid.UUID] = None,
     match_id: Optional[uuid.UUID] = None,
@@ -221,11 +221,12 @@ def list_submissions_query(
     if match_id:
         statement = statement.where(Submission.match_id == match_id)
 
-    
     total_stmt = select(func.count()).select_from(statement.subquery())
-    total = session.exec(total_stmt).one()
+    total_res = await session.exec(total_stmt)
+    total = total_res.one()
 
     statement = statement.order_by(Submission.submitted_at.desc()).offset(offset).limit(limit)
-    items = session.exec(statement).all()
+    res = await session.exec(statement)
+    items = res.all()
 
     return total, items

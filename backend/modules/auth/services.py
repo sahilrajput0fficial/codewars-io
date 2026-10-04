@@ -1,7 +1,5 @@
 import uuid
 import json
-import urllib.request
-import urllib.error
 from typing import Optional, Dict, Any
 from sqlmodel import Session, select, or_, func
 from fastapi import HTTPException, status

@@ -19,6 +19,7 @@ from .services import (get_profile_data ,
 )
 from sqlmodel import Session ,select
 from db.session import get_session
+from core.logger import logger
 router = APIRouter(
     prefix="/u",
     tags = ["Profile"]
@@ -64,7 +65,7 @@ def update_profile(
         from core.cache import delete_cache_key
         delete_cache_key(f"cache:profile:{current_user.id}")
     except Exception as e:
-        print(f"Error invalidating profile cache: {e}")
+        logger.error(f"Error invalidating profile cache: {e}")
         
     return result
 

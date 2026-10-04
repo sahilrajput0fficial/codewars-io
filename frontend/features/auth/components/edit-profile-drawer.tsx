@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, User, Image as ImageIcon, UploadCloud } from "lucide-react";
 import type { EditProfilePayload } from "../types";
+import { BASE_URL, apiFetch } from "@/lib/api-client";
 
 export interface EditProfileDrawerProps {
   open: boolean;
@@ -41,8 +42,6 @@ export function EditProfileDrawer({
   const [dragActiveAvatar, setDragActiveAvatar] = useState(false);
   const [dragActiveBanner, setDragActiveBanner] = useState(false);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
   // Sync state with props when open changes
   useEffect(() => {
     if (open) {
@@ -68,10 +67,9 @@ export function EditProfileDrawer({
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch(`${API_URL}/u/upload`, {
+      const res = await apiFetch(`${BASE_URL}/u/upload`, {
         method: "POST",
-        body: formData,
-        credentials: "include",
+        json: formData,
       });
 
       if (!res.ok) {
@@ -94,10 +92,9 @@ export function EditProfileDrawer({
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch(`${API_URL}/u/upload`, {
+      const res = await apiFetch(`${BASE_URL}/u/upload`, {
         method: "POST",
-        body: formData,
-        credentials: "include",
+        json: formData,
       });
 
       if (!res.ok) {

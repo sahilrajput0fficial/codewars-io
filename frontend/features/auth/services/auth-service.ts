@@ -9,7 +9,7 @@
  * in the real FastAPI endpoints is a one-line swap per function.
  */
 
-import { BASE_URL } from "@/lib/api-client";
+import { BASE_URL, apiFetch } from "@/lib/api-client";
 import type { ProfileUser, EditProfilePayload } from "../types";
 
 // ─── Backend Response Schema ──────────────────────────────────────────────────
@@ -115,9 +115,7 @@ export function mapBackendProfile(data: BackendProfileResponse): ProfileUser {
 /** Fetch any user's public profile by username. */
 export async function fetchProfile(username: string): Promise<ProfileUser | null> {
   try {
-    const res = await fetch(`${BASE_URL}/u/${username}`, {
-      next: { revalidate: 60 },
-    });
+    const res = await apiFetch(`${BASE_URL}/u/${username}`);
     if (!res.ok) return null;
     const data = await res.json() as BackendProfileResponse;
     return mapBackendProfile(data);
@@ -128,23 +126,10 @@ export async function fetchProfile(username: string): Promise<ProfileUser | null
 
 /**
  * Fetch the current session user's own profile (requires auth).
- *
- * @param cookieHeader - Full cookie header string from `(await cookies()).toString()`.
- *   This forwards every session cookie Supabase set (access_token, refresh_token, etc.)
- *   to the FastAPI backend so it can validate the JWT.  Only needed in Server Components /
- *   Route Handlers — omit in client components where the browser forwards cookies
- *   automatically via `credentials: "include"`.
  */
 export async function fetchMyProfile(cookieHeader?: string): Promise<ProfileUser | null> {
   try {
-    const headers: Record<string, string> = {};
-    if (cookieHeader) headers["Cookie"] = cookieHeader;
-
-    const res = await fetch(`${BASE_URL}/u/me`, {
-      headers,
-      credentials: cookieHeader ? undefined : "include",
-      next: { revalidate: 0 },
-    });
+    const res = await apiFetch(`${BASE_URL}/u/me`, { cookieHeader });
     if (!res.ok) return null;
     const data = await res.json() as BackendProfileResponse;
     return mapBackendProfile(data);
@@ -157,25 +142,16 @@ export async function fetchMyProfile(cookieHeader?: string): Promise<ProfileUser
 
 /**
  * PATCH the current user's profile details.
- *
- * @param cookieHeader - Optional full cookie header string for server-side calls.
- *   Client-side calls rely on the browser cookie jar via `credentials: "include"`.
  */
 export async function updateProfile(
   payload: EditProfilePayload,
   cookieHeader?: string
 ): Promise<ProfileUser | null> {
   try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (cookieHeader) headers["Cookie"] = cookieHeader;
-
-    const res = await fetch(`${BASE_URL}/u/me`, {
-      method:      "PATCH",
-      headers,
-      body:        JSON.stringify(payload),
-      credentials: cookieHeader ? undefined : "include",
+    const res = await apiFetch(`${BASE_URL}/u/me`, {
+      method: "PATCH",
+      json: payload,
+      cookieHeader,
     });
     if (!res.ok) return null;
     const data = await res.json() as BackendProfileResponse;
@@ -195,10 +171,12 @@ export async function updateProfile(
 export async function fetchUserMatches(
   username: string,
   limit: number = 10,
-  offset: number = 0
+  offset: number = 0,
+  cookieHeader?: string
 ): Promise<BackendMatchesListResponse | null> {
   try {
-    const res = await fetch(`${BASE_URL}/u/${username}/matches?limit=${limit}&offset=${offset}`, {
+    const res = await apiFetch(`${BASE_URL}/u/${username}/matches?limit=${limit}&offset=${offset}`, {
+      cookieHeader,
       next: { revalidate: 30 },
     });
     if (!res.ok) return null;
@@ -232,12 +210,13 @@ export async function fetchEloHistory(
   username: string,
   limit: number = 100,
   offset: number = 0,
-  sortOrder: "asc" | "desc" = "asc"
+  sortOrder: "asc" | "desc" = "asc",
+  cookieHeader?: string
 ): Promise<BackendEloHistoryResponse | null> {
   try {
-    const res = await fetch(
+    const res = await apiFetch(
       `${BASE_URL}/u/${username}/elo-history?limit=${limit}&offset=${offset}&sort_order=${sortOrder}`,
-      { next: { revalidate: 30 } }
+      { cookieHeader, next: { revalidate: 30 } }
     );
     if (!res.ok) return null;
     return await res.json() as BackendEloHistoryResponse;

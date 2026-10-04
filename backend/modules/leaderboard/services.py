@@ -132,7 +132,7 @@ def get_global_leaderboard_service(
         total_global=total_global,
         links=links,
     )
-    set_cached_object(cache_key, res, ttl=30)
+    set_cached_object(cache_key, res, ttl=180)
     return res
 
 
@@ -153,7 +153,7 @@ def get_leaderboard_me_service(
 
     rank = _compute_rank(session, user, sort_by)
     res = LeaderboardMeResponse(**user.model_dump(), rank=rank)
-    set_cached_object(cache_key, res, ttl=30)
+    set_cached_object(cache_key, res, ttl=180)
     return res
 
 
@@ -176,6 +176,6 @@ def get_user_rank_service(
         )
     rank = _compute_rank(session, user, sort_by)
     res = UserRankResponse(**user.model_dump(), rank=rank)
-    set_cached_object(cache_key, res, ttl=30)
+    set_cached_object(cache_key, res, ttl=180)
     return res
 

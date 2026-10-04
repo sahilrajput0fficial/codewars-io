@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BASE_URL } from "@/lib/api-client";
+import { useUserStore } from "@/stores/user-store";
 
 export interface UseMatchSocketOptions {
   userId?: string;
@@ -11,6 +12,14 @@ export interface UseMatchSocketOptions {
   onMatchAbandoned?: (data: any) => void;
   onMatchUpdate?: (data: any) => void;
   onMatchEnd?: (data: any) => void;
+  // WHY: Receive real-time AI Bot / Opponent status ('thinking' | 'typing' | 'submitting')
+  onOpponentStatus?: (data: { status: string; problem_id: string; problem_index?: number }) => void;
+  // WHY: Stream incoming code tokens to render opponent live typing in the arena
+  onOpponentCodeStream?: (data: { code_chunk: string; problem_id: string }) => void;
+  onDuelGuestJoined?: (room: any) => void;
+  onDuelGuestLeft?: (room: any) => void;
+  onDuelStarted?: (data: { match_id: string; redirect_url: string }) => void;
+  onDuelCancelled?: (data: { reason: string }) => void;
 }
 
 export function useMatchSocket({
@@ -23,6 +32,12 @@ export function useMatchSocket({
   onMatchAbandoned,
   onMatchUpdate,
   onMatchEnd,
+  onOpponentStatus,
+  onOpponentCodeStream,
+  onDuelGuestJoined,
+  onDuelGuestLeft,
+  onDuelStarted,
+  onDuelCancelled,
 }: UseMatchSocketOptions) {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
@@ -32,6 +47,12 @@ export function useMatchSocket({
   const onMatchAbandonedRef = useRef(onMatchAbandoned);
   const onMatchUpdateRef = useRef(onMatchUpdate);
   const onMatchEndRef = useRef(onMatchEnd);
+  const onOpponentStatusRef = useRef(onOpponentStatus);
+  const onOpponentCodeStreamRef = useRef(onOpponentCodeStream);
+  const onDuelGuestJoinedRef = useRef(onDuelGuestJoined);
+  const onDuelGuestLeftRef = useRef(onDuelGuestLeft);
+  const onDuelStartedRef = useRef(onDuelStarted);
+  const onDuelCancelledRef = useRef(onDuelCancelled);
 
   useEffect(() => {
     onMatchFoundRef.current = onMatchFound;
@@ -39,7 +60,25 @@ export function useMatchSocket({
     onMatchAbandonedRef.current = onMatchAbandoned;
     onMatchUpdateRef.current = onMatchUpdate;
     onMatchEndRef.current = onMatchEnd;
-  }, [onMatchFound, onMatchStart, onMatchAbandoned, onMatchUpdate, onMatchEnd]);
+    onOpponentStatusRef.current = onOpponentStatus;
+    onOpponentCodeStreamRef.current = onOpponentCodeStream;
+    onDuelGuestJoinedRef.current = onDuelGuestJoined;
+    onDuelGuestLeftRef.current = onDuelGuestLeft;
+    onDuelStartedRef.current = onDuelStarted;
+    onDuelCancelledRef.current = onDuelCancelled;
+  }, [
+    onMatchFound,
+    onMatchStart,
+    onMatchAbandoned,
+    onMatchUpdate,
+    onMatchEnd,
+    onOpponentStatus,
+    onOpponentCodeStream,
+    onDuelGuestJoined,
+    onDuelGuestLeft,
+    onDuelStarted,
+    onDuelCancelled,
+  ]);
 
   const activeUserId = userId;
 
@@ -61,20 +100,13 @@ export function useMatchSocket({
       return;
     }
 
-    // Helper to read cookies in browser client
-    const getCookie = (name: string): string | null => {
-      if (typeof document === "undefined") return null;
-      const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-      return match ? match[2] : null;
-    };
-    const accessToken = getCookie("access_token") || "";
-    const identifier = activeUserId || accessToken;
+    const accessToken = useUserStore.getState().accessToken || "";
 
     // Convert BASE_URL from http(s) to ws(s)
     const wsBaseUrl = BASE_URL.replace(/^http/, "ws");
-    const wsUrl = `${wsBaseUrl}/matches/ws/queue?arena_id=${encodeURIComponent(arenaId.toLowerCase())}&user_id=${encodeURIComponent(identifier)}&elo=${elo}`;
+    const wsUrl = `${wsBaseUrl}/matches/ws/queue?arena_id=${encodeURIComponent(arenaId.toLowerCase())}&token=${encodeURIComponent(accessToken)}&elo=${elo}`;
 
-    console.log(`[WebSocket] Connecting to queue at: ${wsUrl}`);
+    console.log(`[WebSocket] Connecting to queue for arena: ${arenaId}`);
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
 
@@ -119,6 +151,32 @@ export function useMatchSocket({
       // 5. Match ended (winner, ELO delta, final scores)
       else if (parsed.event === "match.end" || parsed.event === "match_end") {
         onMatchEndRef.current?.(parsed);
+      }
+      // 5.1 AI Bot / Opponent real-time status updates ('thinking' | 'typing' | 'submitting')
+      // WHY: Gives the human player instant visual feedback that the opponent / AI is actively processing.
+      else if (parsed.event === "opponent.status") {
+        onOpponentStatusRef.current?.(parsed);
+      }
+      // 5.2 AI Bot / Opponent code streaming tokens
+      // WHY: Enables streaming code into the opponent viewer in real time.
+      else if (parsed.event === "opponent.code_stream") {
+        onOpponentCodeStreamRef.current?.(parsed);
+      }
+      // 6. Duel: Guest joined lobby
+      else if (parsed.event === "duel.guest_joined") {
+        onDuelGuestJoinedRef.current?.(parsed.room || parsed);
+      }
+      // 7. Duel: Guest left lobby
+      else if (parsed.event === "duel.guest_left") {
+        onDuelGuestLeftRef.current?.(parsed.room || parsed);
+      }
+      // 8. Duel: Started (redirect to arena)
+      else if (parsed.event === "duel.started") {
+        onDuelStartedRef.current?.(parsed);
+      }
+      // 9. Duel: Cancelled (host left / room closed)
+      else if (parsed.event === "duel.cancelled") {
+        onDuelCancelledRef.current?.(parsed);
       }
     };
 

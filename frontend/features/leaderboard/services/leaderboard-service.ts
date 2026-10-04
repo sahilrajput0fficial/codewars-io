@@ -8,7 +8,7 @@
  *              directly inside a component or page file."
  */
 
-import { BASE_URL } from "@/lib/api-client";
+import { BASE_URL, apiFetch } from "@/lib/api-client";
 import type { LeaderboardEntry } from "../types";
 
 // ─── Response shapes ──────────────────────────────────────────────────────────
@@ -36,13 +36,14 @@ export async function fetchLeaderboard(
   sortBy: string,
   limit:  number,
   offset: number,
-  q = ""
+  q = "",
+  cookieHeader?: string
 ): Promise<LeaderboardResponse | null> {
   try {
     const queryParam = q ? `&q=${encodeURIComponent(q)}` : "";
-    const res = await fetch(
+    const res = await apiFetch(
       `${BASE_URL}/leaderboard/?sort_by=${sortBy}&limit=${limit}&offset=${offset}&sort_order=desc${queryParam}`,
-      { next: { revalidate: 30 } }
+      { cookieHeader, next: { revalidate: 30 } }
     );
     if (!res.ok) return null;
     return res.json() as Promise<LeaderboardResponse>;
@@ -51,8 +52,8 @@ export async function fetchLeaderboard(
   }
 }
 
-export async function fetchTop3(sortBy: string): Promise<LeaderboardEntry[]> {
-  const data = await fetchLeaderboard(sortBy, 3, 0);
+export async function fetchTop3(sortBy: string, cookieHeader?: string): Promise<LeaderboardEntry[]> {
+  const data = await fetchLeaderboard(sortBy, 3, 0, "", cookieHeader);
   return data?.entries ?? [];
 }
 
@@ -65,12 +66,8 @@ export async function fetchTop3(sortBy: string): Promise<LeaderboardEntry[]> {
  */
 export async function fetchMe(cookieHeader?: string): Promise<LeaderboardEntry | null> {
   try {
-    const headers: Record<string, string> = {};
-    if (cookieHeader) headers["Cookie"] = cookieHeader;
-
-    const res = await fetch(`${BASE_URL}/leaderboard/me`, {
-      headers,
-      credentials: cookieHeader ? undefined : "include",
+    const res = await apiFetch(`${BASE_URL}/leaderboard/me`, {
+      cookieHeader,
       next: { revalidate: 0 },
     });
     if (!res.ok) return null;

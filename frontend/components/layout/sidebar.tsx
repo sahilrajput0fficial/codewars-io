@@ -15,8 +15,7 @@ import {
   LogOut,
   type LucideIcon,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { BASE_URL } from "@/lib/api-client";
+import { BASE_URL, apiFetch } from "@/lib/api-client";
 import { useUserStore } from "@/stores/user-store";
 
 interface NavItem {
@@ -112,24 +111,19 @@ export function Sidebar() {
   }, [isOpen]);
 
   const handleLogout = async () => {
-    // 1. Sign out of Supabase
-    const supabase = createClient();
-    await supabase.auth.signOut();
-
-    // 2. Call FastAPI backend logout to delete the access_token cookie
+    // 1. Call FastAPI backend logout to delete the access_token and refresh_token cookies
     try {
-      await fetch(`${BASE_URL}/auth/logout`, {
+      await apiFetch(`${BASE_URL}/auth/logout`, {
         method: "POST",
-        credentials: "include",
       });
     } catch (err) {
       console.error("Backend logout failed:", err);
     }
 
-    // 3. Clear the global user store
+    // 2. Clear the global user store
     useUserStore.getState().clear();
 
-    // 4. Redirect to login page
+    // 3. Redirect to login page
     router.push("/auth/login");
   };
 

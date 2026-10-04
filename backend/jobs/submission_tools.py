@@ -11,13 +11,16 @@ from config import Credentials
 from modules.problems.tables import TestCase
 from modules.submissions.tables import Submission, ProgrammingLanguage, SubmissionVerdict
 from core.schemas import DifficultyScore
-from modules.matches.tables import Matches
+from modules.matches.tables import Matches, Match_Problems
 from modules.problems.tables import Problem, ProblemDifficulty
 from core.connection_manager import manager
-from modules.matches.services import send_paired_event
+from modules.matches.services import send_paired_event, finalize_match
 
+import json
+from db.redis import async_client
 from db.session import async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
+from core.logger import logger
 
 
 class Conversion:
@@ -188,7 +191,7 @@ async def evaluate_submission(
         if not submission:
             # Job was enqueued but the row is gone somehow — log and bail,
             # don't raise (raising triggers a retry that can never succeed).
-            print(f"[judge_submission] submission {submission_id} not found, skipping")
+            logger.warning(f"[judge_submission] submission {submission_id} not found, skipping")
             return None, []
 
         # FIX (idempotency guard): arq/Redis-backed queues are at-least-once,
@@ -199,7 +202,7 @@ async def evaluate_submission(
         # scores, since the later `existing_accepted` check only excludes
         # *other* submission rows, not a second pass over this same one.
         if submission.verdict in TERMINAL_VERDICTS:
-            print(
+            logger.info(
                 f"[judge_submission] {submission_id} already judged "
                 f"({submission.verdict}), skipping duplicate delivery"
             )
@@ -322,8 +325,8 @@ async def evaluate_submission(
             await session.commit()
             await session.refresh(submission)
 
-            # if submission is in a match
-            if submission.match_id:
+            # if submission is in a match and this is a full submission (not a sample test run)
+            if submission.match_id and not is_sample:
                 try:
                     match = await session.get(Matches, submission.match_id)
                     if match:
@@ -341,53 +344,52 @@ async def evaluate_submission(
 
                             is_accepted = (submission.verdict == SubmissionVerdict.accepted)
 
-                            if is_accepted:
-                                # Verify if this problem wasn't already solved
-                                # by this user in this match
-                                existing_accepted_result = await session.exec(
-                                    select(Submission).where(
-                                        Submission.match_id == match.id,
-                                        Submission.user_id == user_id,
-                                        Submission.problem_id == prob.id,
-                                        Submission.verdict == SubmissionVerdict.accepted,
-                                        Submission.id != submission.id,
-                                    )
-                                )
-                                existing_accepted = existing_accepted_result.first()
+                            # Fetch existing solved lists from Redis
+                            match_redis = await async_client.hgetall(f"match:{match.id}")
+                            p1_solved_raw = match_redis.get("p1_solved")
+                            p2_solved_raw = match_redis.get("p2_solved")
 
-                                if not existing_accepted:
-                                    if match.player_one_id == user_id:
+                            p1_solved: list[str] = json.loads(p1_solved_raw) if p1_solved_raw else []
+                            p2_solved: list[str] = json.loads(p2_solved_raw) if p2_solved_raw else []
+
+                            prob_id_str = str(prob.id)
+                            score_changed = False
+
+                            if is_accepted:
+                                if str(match.player_one_id).lower() == str(user_id).lower():
+                                    if prob_id_str not in p1_solved:
+                                        p1_solved.append(prob_id_str)
                                         match.p1_score += added_score
-                                    elif match.player_two_id == user_id:
+                                        score_changed = True
+                                elif match.player_two_id and str(match.player_two_id).lower() == str(user_id).lower():
+                                    if prob_id_str not in p2_solved:
+                                        p2_solved.append(prob_id_str)
                                         match.p2_score += added_score
+                                        score_changed = True
+
+                                if score_changed:
                                     session.add(match)
                                     await session.commit()
                                     await session.refresh(match)
 
-                            # Query solved problem lists for p1 and p2
-                            p1_solved_stmt = select(Submission.problem_id).where(
-                                Submission.match_id == match.id,
-                                Submission.user_id == match.player_one_id,
-                                Submission.verdict == SubmissionVerdict.accepted,
-                            ).distinct()
-                            p1_solved_result = await session.exec(p1_solved_stmt)
-                            p1_solved = [str(pid) for pid in p1_solved_result.all()]
+                            # Update Redis cache with latest solved lists and scores
+                            await async_client.hset(
+                                f"match:{match.id}",
+                                mapping={
+                                    "p1_solved": json.dumps(p1_solved),
+                                    "p2_solved": json.dumps(p2_solved),
+                                    "p1_score": match.p1_score,
+                                    "p2_score": match.p2_score,
+                                }
+                            )
 
-                            p2_solved = []
-                            if match.player_two_id:
-                                p2_solved_stmt = select(Submission.problem_id).where(
-                                    Submission.match_id == match.id,
-                                    Submission.user_id == match.player_two_id,
-                                    Submission.verdict == SubmissionVerdict.accepted,
-                                ).distinct()
-                                p2_solved_result = await session.exec(p2_solved_stmt)
-                                p2_solved = [str(pid) for pid in p2_solved_result.all()]
-
-                            # Construct and send the update event
+                            # Construct and send the update event to both players
                             payload = {
                                 "event": "match.update",
                                 "match_id": str(match.id),
                                 "user_id": str(user_id),
+                                "player_one_id": str(match.player_one_id),
+                                "player_two_id": str(match.player_two_id) if match.player_two_id else "bot",
                                 "verdict": submission.verdict.value if hasattr(submission.verdict, "value") else str(submission.verdict),
                                 "problem_id": str(submission.problem_id),
                                 "scores": {
@@ -399,18 +401,32 @@ async def evaluate_submission(
                                     "p2": p2_solved,
                                 },
                             }
-                            print(
+                            logger.info(
                                 f"[Submissions] Broadcasting match.update for match_id={match.id}. "
                                 f"Sending to player_one={match.player_one_id} and player_two={match.player_two_id}"
                             )
                             await manager.send_to(str(match.player_one_id), payload)
                             if match.player_two_id:
                                 await manager.send_to(str(match.player_two_id), payload)
+
+                            # Check if a player solved all problems in the match (Decisive Win / Full Clear)
+                            if is_accepted:
+                                stmt_count = select(func.count()).where(Match_Problems.match_id == match.id)
+                                count_res = await session.exec(stmt_count)
+                                total_match_probs = count_res.one()
+
+                                if total_match_probs > 0:
+                                    if len(p1_solved) >= total_match_probs:
+                                        logger.info(f"[Submissions] Player 1 ({match.player_one_id}) completed all {total_match_probs} problems! Finalizing match.")
+                                        await finalize_match(session, match, winner_id=match.player_one_id)
+                                    elif match.player_two_id and len(p2_solved) >= total_match_probs:
+                                        logger.info(f"[Submissions] Player 2 ({match.player_two_id}) completed all {total_match_probs} problems! Finalizing match.")
+                                        await finalize_match(session, match, winner_id=match.player_two_id)
                 except Exception as match_err:
-                    print(f"Error updating match stats or broadcasting: {match_err}")
+                    logger.error(f"Error updating match stats or broadcasting: {match_err}")
 
         except Exception as e:
-            print(f"[judge_submission] error on {submission_id}: {e}")
+            logger.error(f"[judge_submission] error on {submission_id}: {e}")
             submission.verdict = SubmissionVerdict.runtime_error
             submission.stderr = str(e)
             submission.judged_at = datetime.utcnow()

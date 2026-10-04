@@ -211,12 +211,7 @@ function PlayPageContent() {
               {/* ── Friendly Fire Card (Width equal to 4 Arena Cards) ─────── */}
               <div className="mt-4">
                 <FriendlyFireCard
-                  onJoinMatch={(code) => {
-                    setIsQueuing(true);
-                  }}
-                  onCreateMatch={(code) => {
-                    console.log(`Created friendly match with code: ${code}`);
-                  }}
+                  arenaSlug={selectedId}
                 />
               </div>
             </>

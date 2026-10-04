@@ -14,10 +14,15 @@ from jobs.settings import REDIS_SETTINGS
 from db.session import  engine
 from config import Credentials
 
+import asyncio
+from core.connection_manager import manager
+
 @asynccontextmanager
-async def lifespan(app : FastAPI ):
+async def lifespan(app: FastAPI):
     app.state.arq_pool = await create_pool(REDIS_SETTINGS)
+    listener_task = asyncio.create_task(manager.start_redis_listener())
     yield
+    listener_task.cancel()
     await app.state.arq_pool.close()
 
 

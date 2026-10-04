@@ -3,36 +3,46 @@
 /**
  * features/match/components/FriendlyFireCard.tsx
  *
- * Friendly Fire card styled exactly as requested:
+ * Friendly Fire card:
  *  - Left red accent bar
  *  - Title: FRIENDLY FIRE: DUEL A COMRADE
  *  - Subtitle: CHALLENGE YOUR ALLIES IN PRIVATE SKIRMISHES. NO ELO LOSS, ALL THE GLORY.
- *  - Green Outline CTA: GENERATE INVITE CODE
- *  - Input + Red Button Group: ENTER BATTLE CODE + JOIN SKIRMISH
+ *  - Green Outline CTA: GENERATE INVITE CODE (calls createDuelRoom API)
+ *  - Input + Red Button Group: ENTER BATTLE CODE + JOIN BATTLE (calls joinDuelRoom API)
  */
 
 import React, { useState } from "react";
-import { Copy, Check, Play } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Copy, Check, Play, Loader2 } from "lucide-react";
+import { createDuelRoom, joinDuelRoom } from "@/services/match-service";
 
 interface FriendlyFireCardProps {
+  arenaSlug?: string;
   onJoinMatch?: (code: string) => void;
   onCreateMatch?: (code: string) => void;
 }
 
-export function FriendlyFireCard({ onJoinMatch, onCreateMatch }: FriendlyFireCardProps) {
+export function FriendlyFireCard({ arenaSlug = "kabul", onJoinMatch, onCreateMatch }: FriendlyFireCardProps) {
+  const router = useRouter();
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [inputCode, setInputCode] = useState("");
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
 
-  const handleGenerateCode = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let code = "FF-";
-    for (let i = 0; i < 4; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+  const handleGenerateCode = async () => {
+    try {
+      setIsCreating(true);
+      setErrorMsg("");
+      const roomData = await createDuelRoom(arenaSlug, false);
+      setCreatedCode(roomData.code);
+      if (onCreateMatch) onCreateMatch(roomData.code);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to create duel room");
+    } finally {
+      setIsCreating(false);
     }
-    setCreatedCode(code);
-    if (onCreateMatch) onCreateMatch(code);
   };
 
   const handleCopyCode = () => {
@@ -42,18 +52,29 @@ export function FriendlyFireCard({ onJoinMatch, onCreateMatch }: FriendlyFireCar
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleJoin = (e: React.FormEvent) => {
+  const handleEnterLobby = () => {
+    if (!createdCode) return;
+    router.push(`/duel/${createdCode}`);
+  };
+
+  const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCode = inputCode.trim().toUpperCase();
     if (!cleanCode) {
       setErrorMsg("ENTER BATTLE CODE REQUIRED");
       return;
     }
-    setErrorMsg("");
-    if (onJoinMatch) {
-      onJoinMatch(cleanCode);
-    } else {
-      alert(`JOINING BATTLE: ${cleanCode}`);
+
+    try {
+      setIsJoining(true);
+      setErrorMsg("");
+      await joinDuelRoom(cleanCode);
+      if (onJoinMatch) onJoinMatch(cleanCode);
+      router.push(`/duel/${cleanCode}`);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to join duel");
+    } finally {
+      setIsJoining(false);
     }
   };
 
@@ -70,11 +91,15 @@ export function FriendlyFireCard({ onJoinMatch, onCreateMatch }: FriendlyFireCar
         <p className="font-mono text-[10px] md:text-[11px] text-neutral-400 tracking-wider uppercase mt-1">
           CHALLENGE YOUR ALLIES IN PRIVATE SKIRMISHES. NO ELO LOSS, ALL THE GLORY.
         </p>
+        {errorMsg && (
+          <span className="font-mono text-[10px] text-red-400 uppercase tracking-wide mt-1">
+            ⚠️ {errorMsg}
+          </span>
+        )}
       </div>
 
       {/* Right Controls Row */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:gap-4 shrink-0 pl-3 md:pl-0">
-        
         {/* Green Outline Button / Generated Code display */}
         {createdCode ? (
           <div className="flex items-center gap-2 border border-emerald-500/80 bg-emerald-950/30 px-3 py-2 font-mono text-xs text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.15)]">
@@ -89,19 +114,21 @@ export function FriendlyFireCard({ onJoinMatch, onCreateMatch }: FriendlyFireCar
             </button>
             <button
               type="button"
-              onClick={() => onJoinMatch && onJoinMatch(createdCode)}
+              onClick={handleEnterLobby}
               className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] uppercase flex items-center gap-1 ml-1"
             >
               <Play className="h-3 w-3 fill-current" />
-              START
+              LOBBY
             </button>
           </div>
         ) : (
           <button
             type="button"
+            disabled={isCreating}
             onClick={handleGenerateCode}
-            className="border border-emerald-500 text-emerald-400 hover:bg-emerald-950/40 font-mono text-xs uppercase px-4 py-2.5 tracking-wider transition-colors shadow-[0_0_10px_rgba(16,185,129,0.1)] active:scale-95"
+            className="border border-emerald-500 text-emerald-400 hover:bg-emerald-950/40 font-mono text-xs uppercase px-4 py-2.5 tracking-wider transition-colors shadow-[0_0_10px_rgba(16,185,129,0.1)] active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
           >
+            {isCreating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
             GENERATE INVITE CODE
           </button>
         )}
@@ -121,9 +148,10 @@ export function FriendlyFireCard({ onJoinMatch, onCreateMatch }: FriendlyFireCar
           />
           <button
             type="submit"
-            className="bg-red-500 hover:bg-red-600 text-black font-mono font-bold text-xs uppercase px-4 py-2.5 tracking-wider transition-colors shrink-0 flex items-center justify-center active:scale-95"
+            disabled={isJoining}
+            className="bg-red-500 hover:bg-red-600 text-black font-mono font-bold text-xs uppercase px-4 py-2.5 tracking-wider transition-colors shrink-0 flex items-center justify-center active:scale-95 disabled:opacity-50"
           >
-            JOIN BATTLE
+            {isJoining ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "JOIN BATTLE"}
           </button>
         </form>
       </div>

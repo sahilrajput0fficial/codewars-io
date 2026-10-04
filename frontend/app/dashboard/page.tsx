@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { BASE_URL } from "@/lib/api-client";
+import { BASE_URL, apiFetch } from "@/lib/api-client";
 import { LogoutButton } from "@/components/logout-button";
 
 interface UserProfile {
@@ -13,17 +13,16 @@ interface UserProfile {
 
 async function getUserProfile(): Promise<UserProfile> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("access_token")?.value;
+  const hasAuthToken =
+    cookieStore.has("access_token") || cookieStore.has("refresh_token");
   
-  if (!token) {
+  if (!hasAuthToken) {
     redirect("/auth/login");
   }
 
   try {
-    const res = await fetch(`${BASE_URL}/auth/me`, {
-      headers: {
-        Cookie: `access_token=${token}`
-      },
+    const res = await apiFetch(`${BASE_URL}/auth/me`, {
+      cookieHeader: cookieStore.toString(),
       next: { revalidate: 0 }
     });
 

@@ -1,13 +1,12 @@
 from typing import List, Optional , Annotated
 import uuid
 from fastapi import APIRouter, Depends, Query, HTTPException, status , Request
-from sqlmodel import Session
-from .schemas import Environment
-from db.session import get_session , get_session_async
+from db.session import get_session_async
 from modules.auth.dependencies import get_current_user
 from modules.auth.tables import User
 from .tables import Submission
 from .schemas import (
+    Environment,
     SubmissionCreate,
     SubmissionResponse,
     SubmissionListItem,
@@ -48,26 +47,19 @@ async def submit_code_route(
 
 
 @router.get("/", response_model=SubmissionListResponse)
-def list_submissions_route(
+async def list_submissions_route(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     problem_id: Optional[uuid.UUID] = Query(default=None),
     match_id: Optional[uuid.UUID] = Query(default=None),
     user_id: Optional[uuid.UUID] = Query(default=None),
-    session: Session = Depends(get_session),
+    session: Annotated[AsyncSession, Depends(get_session_async)] = ...,
     current_user: User = Depends(get_current_user),
 ) -> SubmissionListResponse:
     """
     List submissions with optional filters by problem, match, or user.
     """
-    total, items = list_submissions_query(
-        session=session,
-        user_id=user_id,
-        problem_id=problem_id,
-        match_id=match_id,
-        limit=limit,
-        offset=offset,
-    )
+    total, items = await list_submissions_query(session, user_id, problem_id, match_id, limit, offset)
     return SubmissionListResponse(
         total=total,
         limit=limit,
@@ -77,16 +69,15 @@ def list_submissions_route(
 
 
 @router.get("/{submission_id}", response_model=SubmissionResponse)
-def get_submission_route(
+async def get_submission_route(
     submission_id: uuid.UUID,
-    session: Session = Depends(get_session),
+    session: Annotated[AsyncSession, Depends(get_session_async)] = ...,
     current_user: User = Depends(get_current_user),
-    
 ) -> SubmissionResponse:
     """
     Get detailed submission details by ID.
     """
-    submission = session.get(Submission, submission_id)
+    submission = await session.get(Submission, submission_id)
     if not submission:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

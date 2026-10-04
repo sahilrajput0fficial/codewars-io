@@ -50,3 +50,5 @@ class DifficultyScore(Enum):
     hard = 7
     extreme = 10
     hardcore = 15
+
+    

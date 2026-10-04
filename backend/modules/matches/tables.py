@@ -1,12 +1,13 @@
 import uuid
 from datetime import datetime
 from typing import Any
-
+from modules.auth.tables import User
 from sqlmodel import SQLModel, Field , Relationship
 from sqlalchemy import Column, Index, String, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID as PG_UUID 
 
 from .schemas import Match_Mode, Match_Status
+from modules.problems.tables import Problem
 from sqlalchemy import Enum
 
 
@@ -37,6 +38,11 @@ class Arena(SQLModel, table=True):
     is_active: bool = Field(default=True)
     subtitle: str = Field(max_length=100)
     lore: str = Field(max_length=100)
+
+
+
+
+
 class Matches(SQLModel, table=True):
     __tablename__ = "matches"
 
@@ -56,10 +62,22 @@ class Matches(SQLModel, table=True):
         foreign_key="users.id",
         nullable=False,
     )
+    player_one: User = Relationship(
+        sa_relationship_kwargs={
+            "foreign_keys": "[Matches.player_one_id]"
+        }
+    )
+
     player_two_id: uuid.UUID | None = Field(
         foreign_key="users.id",
         default=None,
         nullable=True,
+    )
+
+    player_two: User | None = Relationship(
+        sa_relationship_kwargs={
+            "foreign_keys": "[Matches.player_two_id]"
+        }
     )
     bot_elo: int | None = Field(
         default=None,
@@ -77,12 +95,7 @@ class Matches(SQLModel, table=True):
         nullable=False,
     ),
     )
-    problem_ids: list[uuid.UUID] = Field(
-        sa_column=Column(
-            ARRAY(PG_UUID(as_uuid=True)),
-            nullable=False,
-        )
-    )
+
     difficulty_config: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(
@@ -95,6 +108,18 @@ class Matches(SQLModel, table=True):
         default=None,
         nullable=True,
     )
+
+    winner: User | None = Relationship(
+    sa_relationship_kwargs={
+        "foreign_keys": "[Matches.winner_id]"
+    }
+    )
+
+    match_problems: list["Match_Problems"] = Relationship(
+        back_populates="match"
+    )
+
+
     p1_score: int = Field(default=0)
     p2_score: int = Field(default=0)
 
@@ -125,3 +150,23 @@ class Matches(SQLModel, table=True):
     )
 
 
+
+
+class Match_Problems(SQLModel , table = True):
+    __tablename__ = "match_problems"
+
+    match_id: uuid.UUID = Field(
+        foreign_key="matches.id",
+        primary_key=True,
+    )
+    problem_id: uuid.UUID = Field(
+        foreign_key="problems.id",
+        primary_key=True,
+    )
+    order: int = Field(nullable=False)
+    match: Matches = Relationship(
+        back_populates="match_problems"
+    )
+    problem: Problem = Relationship()
+
+    

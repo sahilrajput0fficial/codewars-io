@@ -1,4 +1,5 @@
 from db.redis import client , async_client
+from core.logger import logger
 
 RADIUS = 200
 
@@ -25,7 +26,7 @@ async def join_queue(user_id: str, elo: int, arena_name: str) -> str | None:
         return opponent_id
 
     await async_client.zadd(queue_key, {user_id: elo})
-    print(f"[USER ADDED TO QUEUE]:{user_id}")
+    logger.info(f"[USER ADDED TO QUEUE]:{user_id}")
     return None
 
 

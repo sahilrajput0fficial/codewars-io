@@ -1,9 +1,9 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { BASE_URL } from "@/lib/api-client";
+import { BASE_URL, apiFetch } from "@/lib/api-client";
+import { useUserStore } from "@/stores/user-store";
 import { LogOut } from "lucide-react";
 
 interface LogoutButtonProps {
@@ -14,19 +14,17 @@ export function LogoutButton({ className }: LogoutButtonProps) {
   const router = useRouter();
 
   const logout = async () => {
-    // 1. Sign out of Supabase
-    const supabase = createClient();
-    await supabase.auth.signOut();
-
-    // 2. Call FastAPI backend logout to delete the access_token cookie
+    // 1. Call FastAPI backend logout to delete the access_token and refresh_token cookies
     try {
-      await fetch(`${BASE_URL}/auth/logout`, {
+      await apiFetch(`${BASE_URL}/auth/logout`, {
         method: "POST",
-        credentials: "include",
       });
     } catch (err) {
       console.error("Backend logout failed:", err);
     }
+
+    // 2. Clear client-side store
+    useUserStore.getState().clear();
 
     // 3. Redirect to login page
     router.push("/auth/login");

@@ -57,3 +57,139 @@ export async function fetchMatchById(matchId: string, cookieHeader?: string): Pr
   return response.json();
 }
 
+export interface CompleteMatchResponse {
+  status: string;
+  match_id: string;
+  winner_id: string | null;
+  p1_score: number;
+  p2_score: number;
+  p1_elo_delta: number;
+  p2_elo_delta: number;
+}
+
+/**
+ * Request authoritative match finalization from the backend.
+ */
+export async function completeMatch(matchId: string, cookieHeader?: string): Promise<CompleteMatchResponse> {
+  const url = `${BASE_URL}/matches/${matchId}/complete`;
+  const response = await apiFetch(url, {
+    method: "POST",
+    cookieHeader,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Failed to complete match (${response.status})`);
+  }
+
+  return response.json();
+}
+
+export interface DuelRoomData {
+  code: string;
+  url: string;
+  arena_slug: string;
+  is_ranked: boolean;
+  host_id: string;
+  host_name: string;
+  host_avatar: string | null;
+  guest_id: string | null;
+  guest_name: string | null;
+  guest_avatar: string | null;
+  status: "waiting" | "ready" | "started";
+  match_id: string | null;
+  created_at: string;
+}
+
+/**
+ * Create a new private duel room.
+ */
+export async function createDuelRoom(
+  arenaSlug: string = "kabul",
+  isRanked: boolean = false
+): Promise<DuelRoomData> {
+  const url = `${BASE_URL}/matches/duel/?arena_slug=${encodeURIComponent(arenaSlug)}&is_ranked=${isRanked}`;
+  const response = await apiFetch(url, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Failed to create duel room (${response.status})`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch duel room status.
+ */
+export async function getDuelRoom(code: string): Promise<DuelRoomData> {
+  const url = `${BASE_URL}/matches/duel/${encodeURIComponent(code)}`;
+  const response = await apiFetch(url, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Duel room not found (${response.status})`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Join an existing duel room as a guest.
+ */
+export async function joinDuelRoom(code: string): Promise<DuelRoomData> {
+  const url = `${BASE_URL}/matches/duel/join/${encodeURIComponent(code)}`;
+  const response = await apiFetch(url, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let detail = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      if (parsed.detail) detail = parsed.detail;
+    } catch {}
+    throw new Error(detail || `Failed to join duel room (${response.status})`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Start the duel match (Host only).
+ */
+export async function startDuelRoom(code: string): Promise<DuelRoomData> {
+  const url = `${BASE_URL}/matches/duel/start/${encodeURIComponent(code)}`;
+  const response = await apiFetch(url, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let detail = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      if (parsed.detail) detail = parsed.detail;
+    } catch {}
+    throw new Error(detail || `Failed to start duel (${response.status})`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Leave or cancel a duel lobby.
+ */
+export async function leaveDuelRoom(code: string): Promise<void> {
+  const url = `${BASE_URL}/matches/duel/${encodeURIComponent(code)}`;
+  await apiFetch(url, {
+    method: "DELETE",
+  });
+}
+
+

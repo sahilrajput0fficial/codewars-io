@@ -2,6 +2,7 @@
 import os
 import json
 from sqlmodel import Session  , select , func
+from sqlalchemy.orm import selectinload
 from typing import Dict , Any 
 from .schemas import (
     ProfileUpdateRequest , 
@@ -17,8 +18,7 @@ from .schemas import (
 )
 from modules.auth.tables import User
 from config import Credentials
-import urllib.request
-import urllib.error
+import httpx
 import datetime
 import uuid
 from fastapi import HTTPException , status
@@ -101,7 +101,11 @@ def get_user_matches_service(
     where player_one_id = user.id or player_two_id = user.id
     '''
 
-    stmt = select(Matches).where((Matches.player_one_id == user.id) | (Matches.player_two_id == user.id))
+    stmt = (
+        select(Matches)
+        .where((Matches.player_one_id == user.id) | (Matches.player_two_id == user.id))
+        .options(selectinload(Matches.match_problems))
+    )
     stmt = apply_sort_order(stmt, Matches.created_at, query.sort_order)
     stmt = stmt.limit(query.limit).offset(query.offset)
     matches = session.exec(stmt).all()
@@ -158,7 +162,7 @@ def get_user_matches_service(
             bot_elo=m.bot_elo,
             mode=m.mode,
             status=m.status,
-            problem_ids=m.problem_ids,
+            problem_ids=[mp.problem_id for mp in (m.match_problems or [])],
             difficulty_config=m.difficulty_config,
             winner_id=m.winner_id,
             p1_score=m.p1_score,
@@ -183,8 +187,6 @@ def get_user_matches_service(
 
 
 def upload_image_to_supabase(file_content: bytes, file_name: str, content_type: str, user_id: str) -> str:
-
-
     ext = file_name.split(".")[-1] if "." in file_name else "png"
     timestamp = int(datetime.datetime.utcnow().timestamp())
     path = f"{user_id}/asset-{timestamp}.{ext}"
@@ -192,26 +194,22 @@ def upload_image_to_supabase(file_content: bytes, file_name: str, content_type: 
     url = f"{Credentials.SUPABASE_URL}/storage/v1/object/profile-assets/{path}"
     key = Credentials.SUPABASE_SERVICE_ROLE_KEY or Credentials.SUPABASE_ANON_KEY
 
-    req = urllib.request.Request(
-        url,
-        data=file_content,
-        headers={
-            "Authorization": f"Bearer {key}",
-            "apikey": key,
-            "Content-Type": content_type
-        },
-        method="POST"
-    )
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "apikey": key or "",
+        "Content-Type": content_type
+    }
 
     try:
-        with urllib.request.urlopen(req) as response:
-            json.loads(response.read().decode())
-    except urllib.error.HTTPError as e:
-        error_msg = e.read().decode()
-        raise HTTPException(
-            status_code=e.code,
-            detail=f"Supabase storage upload failed: {error_msg}"
-        )
+        with httpx.Client() as client:
+            resp = client.post(url, content=file_content, headers=headers)
+            if resp.is_error:
+                raise HTTPException(
+                    status_code=resp.status_code,
+                    detail=f"Supabase storage upload failed: {resp.text}"
+                )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,

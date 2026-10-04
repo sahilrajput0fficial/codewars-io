@@ -26,10 +26,10 @@ new color or font that isn't already a token defined there.
 - Check the `name` field inside each package's `package.json` to confirm
   the correct package name instead of the top-level one.
 - Backend env vars live in `backend/.env` — required: `DATABASE_URL`,
-  `REDIS_URL`, `JUDGE0_URL`, `SUPABASE_JWT_SECRET`, `SENTRY_DSN`.
+  `REDIS_URL`, `JUDGE0_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`,
+  `SENTRY_DSN`.
 - Frontend env vars live in `frontend/.env.local` — required:
-  `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
-  `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+  `NEXT_PUBLIC_API_URL`.
 - Run `docker-compose up -d` from repo root to start local Postgres,
   Redis, and a local Judge0 instance before running the backend.
 - Never run user-submitted code against the main backend process — all
@@ -50,13 +50,54 @@ new color or font that isn't already a token defined there.
 - **Job queue:** `arq` (not BullMQ — BullMQ is Node-only and not part of
   this stack). Background jobs (ELO recalculation, quest resets, streak
   updates, replay persistence) are registered in `app/jobs/`.
-- **Auth:** Supabase Auth issues the JWT; FastAPI validates it via
-  `PyJWT` against Supabase's JWKS endpoint. Every protected route depends
-  on `get_current_user`.
+- **Auth:** Fully self-issued and self-managed. Password/OAuth
+  credential verification, JWT issuance, and JWT refresh all happen in
+  our own backend — **nothing about auth relies on Supabase**. Supabase
+  is used only as the Postgres host for `DATABASE_URL`; it is not an
+  identity provider. See "Auth: self-issued JWT" below for the full
+  contract.
 - **Code execution:** Judge0 CE, self-hosted, running on an isolated VM
   — never on the same host as the FastAPI app. All execution requests go
   through the Problems & Judge module's submission service, never called
   directly from another module.
+
+### Auth: self-issued JWT (access + refresh)
+
+We do **not** use Supabase Auth, Supabase JWKS, or Supabase session
+cookies anywhere in the stack. Auth is entirely first-party:
+
+- **Token issuance:** `app/modules/auth/services.py` is the only place
+  that mints tokens. On successful login/signup it issues:
+  - an **access token** — short-lived (15 min), signed with `JWT_SECRET`
+    (HS256), carries `sub` = `users.id` (UUID) plus `exp`, `iat`, `jti`.
+  - a **refresh token** — long-lived (30 days), signed with a
+    **separate** secret `JWT_REFRESH_SECRET`, carries `sub`, `exp`,
+    `iat`, `jti`, and a `token_family` id for rotation tracking.
+- **Refresh token storage:** refresh tokens are stored server-side
+  (hashed, never plaintext) in a `refresh_tokens` table keyed by
+  `token_family`, so any token can be revoked individually or by family
+  (e.g. "log out everywhere"). Never trust a refresh token that isn't
+  present and unexpired in this table.
+- **Rotation:** every call to `POST /auth/refresh` issues a brand-new
+  access + refresh token pair and invalidates the previous refresh
+  token in the same family. If a refresh token is reused after
+  rotation (replay), revoke the entire `token_family` — that's a signal
+  of token theft.
+- **Validation:** every protected route depends on `get_current_user`,
+  which decodes and verifies the access token locally with `JWT_SECRET`
+  (no network call, no JWKS fetch, no third-party dependency). Never
+  validate against an external identity provider.
+- **Password storage:** hash with `bcrypt`/`argon2` in
+  `auth/services.py`; never store or log plaintext passwords.
+- **OAuth (GitHub/Google), if used:** our backend exchanges the OAuth
+  provider's code directly, verifies the identity, upserts the `users`
+  row, and then issues our own access + refresh pair exactly as above.
+  The provider is only used to confirm identity at signup/login — it
+  never issues or refreshes the tokens our app trusts.
+- **WebSocket auth:** `/ws/queue` and `/ws/match/{id}` accept the access
+  token as a query param (`?token=`) and validate it the same way as
+  HTTP routes — locally, against `JWT_SECRET`. Never trust a
+  client-supplied `user_id` or `elo` query param.
 
 ### Keep the backend modular
 - Organize the backend into feature/module-based folders, aligned to the
@@ -73,10 +114,13 @@ backend/
 └── app/
     ├── modules/
     │   ├── auth/
-    │   │   ├── router.py        # API routes
-    │   │   ├── services.py      # Business logic
+    │   │   ├── router.py        # API routes: /auth/signup, /auth/login,
+    │   │   │                     #   /auth/refresh, /auth/logout
+    │   │   ├── services.py      # Business logic: password hashing,
+    │   │   │                     #   JWT issuance + rotation, OAuth exchange
     │   │   ├── schemas.py       # Pydantic request/response schemas
-    │   │   ├── models.py        # Database models (User, EloHistory)
+    │   │   ├── models.py        # Database models (User, EloHistory,
+    │   │   │                     #   RefreshToken)
     │   │   ├── repository.py    # Database operations (optional)
     │   │   └── utils.py         # Helper functions (if required)
     │   ├── problems/
@@ -103,6 +147,8 @@ backend/
     ├── core/
     │   ├── config.py            # env var loading
     │   ├── deps.py               # get_current_user, shared dependencies
+    │   ├── jwt.py                 # encode/decode/rotate helpers, shared by
+    │   │                           #   HTTP deps and the WS auth path
     │   └── redis.py              # shared Redis client
     └── main.py                   # registers all module routers, lifespan, Sentry init
 ```
@@ -122,8 +168,9 @@ backend/
 - Services should contain:
   - validations
   - workflows
-  - integrations (Judge0 calls, Supabase calls)
-  - processing logic (ELO calculation, quest completion checks)
+  - integrations (Judge0 calls)
+  - processing logic (ELO calculation, quest completion checks, JWT
+    issuance/rotation for the auth module)
 - Services should not depend on HTTP request objects or WebSocket
   connection objects directly — pass plain data in, get plain data out,
   so services stay testable without a live request/connection.
@@ -143,10 +190,14 @@ backend/
   there is no separate `leaderboard` table. Do not create one.
 - `elo_history` is append-only. Never `UPDATE` a row in this table, only
   `INSERT`.
+- `refresh_tokens` (owned by the auth module) stores hashed refresh
+  tokens keyed by `token_family`. Revoking a family is a soft-delete
+  (`revoked_at` timestamp) — never hard-delete rows we may need for
+  theft-detection auditing.
 - Add a database index whenever a new query sorts or filters on a
-  column at read-heavy scale (e.g. `users.elo`, `problems.difficulty`) —
-  call this out explicitly in the migration, don't add it silently
-  later.
+  column at read-heavy scale (e.g. `users.elo`, `problems.difficulty`,
+  `refresh_tokens.token_family`) — call this out explicitly in the
+  migration, don't add it silently later.
 
 ### Cross-module contracts
 - Modules communicate only through:
@@ -179,8 +230,26 @@ modules used on the backend.
   server data inside Zustand stores.
 - **Code editor:** `@monaco-editor/react` — the only code editor
   component used anywhere in the app.
-- **Auth:** `@supabase/ssr` for session handling — server components
-  read the session via the server client, never via a client-only hook.
+- **Auth:** first-party, backed entirely by our own FastAPI `/auth`
+  routes — **no `@supabase/ssr`, no Supabase client anywhere in the
+  frontend.**
+  - The access token is held in memory (Zustand `userStore`) and
+    attached as `Authorization: Bearer <token>` by `lib/api-client.ts`.
+  - The refresh token is stored in an **httpOnly, secure cookie** set by
+    the backend on login/refresh — never accessible to client-side JS.
+  - `lib/api-client.ts` implements the single shared
+    401-detect-refresh-retry wrapper (`apiFetch`): on a 401, it calls
+    `POST /auth/refresh` once, updates the in-memory access token on
+    success, and retries the original request; on refresh failure it
+    clears `userStore` and redirects to `/login`. No feature should
+    hand-roll its own refresh logic.
+  - `useCurrentUser` reads from `userStore`, not from any Supabase
+    hook. Server components that need the user identity read the
+    access token off the request cookies/headers and call our own
+    `GET /users/me` — never a Supabase server client.
+  - During an active match, proactively refresh on an interval shorter
+    than the access token TTL so a player is never mid-submit when the
+    token expires.
 - **Fonts:** Loaded via `next/font/google` only — `Inter` for UI,
   `JetBrains Mono` for all numbers and code (see `DESIGN.md` Section 6).
 
@@ -191,7 +260,9 @@ frontend/
 ├── app/
 │   ├── (auth)/
 │   │   ├── login/
-│   │   └── auth/callback/
+│   │   └── signup/               # first-party signup — no /auth/callback,
+│   │                              #   since there is no external OAuth
+│   │                              #   redirect step to catch
 │   ├── (main)/
 │   │   ├── u/[username]/         # M1 — profile page
 │   │   ├── leaderboard/          # M1 — leaderboard page
@@ -216,15 +287,16 @@ frontend/
 │                                   cross-module shared components only
 │
 ├── features/
-│   ├── auth/                     # M1 — sign-in, profile components
+│   ├── auth/                     # M1 — sign-in/sign-up forms, profile components
 │   ├── leaderboard/               # M1 — table, rank row, your-rank marker
 │   ├── problems/                  # M2 — problem list, editor panel, result panel
 │   ├── match/                     # M3 — match arena, matchStore, WS client
 │   └── retention/                 # M4 — bot select, quest panel, POTD card
 │
 ├── lib/
-│   ├── supabase/                  # client + server Supabase instances
 │   └── api-client.ts              # typed fetch wrapper for the FastAPI backend
+│                                    #   (apiFetch: attaches bearer token,
+│                                    #   401-detect-refresh-retry)
 │
 ├── services/                      # one file per backend module's API surface
 │   ├── auth-service.ts
@@ -238,7 +310,8 @@ frontend/
 │
 ├── stores/
 │   ├── match-store.ts              # Zustand — live match state
-│   └── user-store.ts                # Zustand — session, profile, ELO
+│   └── user-store.ts                # Zustand — session, profile, ELO,
+│                                      #   in-memory access token
 │
 ├── utils/
 │
@@ -343,6 +416,8 @@ For local development, both services run independently on different localhost po
   ```env
   ENVIRONMENT=development
   FRONTEND_URL=http://localhost:3000
+  JWT_SECRET=dev-only-change-me
+  JWT_REFRESH_SECRET=dev-only-change-me-too
   ```
 
 ---
@@ -364,6 +439,8 @@ You must configure the following environment variables in the **Vercel Project D
 2. **Backend Service Variables:**
    * `ENVIRONMENT` = `production`
    * `FRONTEND_URL` = `https://codewars-io.vercel.app`
+   * `JWT_SECRET` = *(strong, rotated secret — access token signing)*
+   * `JWT_REFRESH_SECRET` = *(separate strong, rotated secret — refresh token signing)*
 
 #### Build-Time Safety Guard:
 The frontend has a safety guard in `frontend/next.config.ts`. If Vercel tries to build the application and `NEXT_PUBLIC_ENVIRONMENT` is not set to `production`, the build will fail immediately. This ensures development settings are never accidentally deployed.

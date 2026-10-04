@@ -50,3 +50,4 @@ class UserPublic(BaseModel):
 class AuthResponse(BaseModel):
     message: str
     user: UserPublic
+    access_token: str | None = None

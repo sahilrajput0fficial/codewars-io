@@ -12,6 +12,7 @@ import { useTheme } from "next-themes";
 import { Navbar } from "@/components/layout/navbar";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useMatchSocket } from "@/hooks/use-match-socket";
+import { useProactiveTokenRefresh } from "@/hooks/use-proactive-token-refresh";
 import {
   runCode,
   submitCode,
@@ -20,6 +21,7 @@ import {
   formatMemory,
   type SubmissionLanguage,
 } from "@/features/problems/services/submissions-service";
+import { completeMatch } from "@/services/match-service";
 import {
   MatchArenaData,
   MatchProblemSpec,
@@ -79,6 +81,9 @@ export function MatchArena({ initialMatchData }: MatchArenaProps) {
   const myElo = initialMatchData?.me.elo || user?.elo || 1250;
   const oppUsername = initialMatchData?.opponent.displayName || "Opponent";
   const oppElo = initialMatchData?.opponent.elo ?? 1280;
+
+  // Proactively refresh access token during active match
+  useProactiveTokenRefresh({ enabled: true });
 
   // Active Problem & Language State
   const [activeProblemIdx, setActiveProblemIdx] = useState(0);
@@ -171,6 +176,10 @@ export function MatchArena({ initialMatchData }: MatchArenaProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastVerdict, setLastVerdict] = useState<SubmissionVerdict | null>(null);
 
+  // Opponent Real-time Status (AI Bot / Opponent action tracking)
+  // WHY: Visual feedback for thinking, coding, and submitting states from the WebSocket stream.
+  const [oppStatus, setOppStatus] = useState<"idle" | "thinking" | "typing" | "submitting">("idle");
+
   // Live Activity Feed (initialized empty to prevent SSR/locale hydration mismatch)
   const [activityFeed, setActivityFeed] = useState<LiveActivityEvent[]>([]);
 
@@ -253,71 +262,86 @@ export function MatchArena({ initialMatchData }: MatchArenaProps) {
     enabled: !!user?.id,
     onMatchUpdate: (data) => {
       console.log("[MatchArena] Received match update event:", data);
-      const isMe = data.user_id === user?.id;
-      const scores = data.scores;
-      const solvedIds = data.solved_problem_ids;
+      if (!data) return;
 
-      if (isMe) {
-        const mySolvedList = initialMatchData?.me.id === data.user_id ? solvedIds.p1 : solvedIds.p2;
-        setMeSolved(mySolvedList || []);
-        const myNewScore = initialMatchData?.me.id === data.user_id ? scores.p1 : scores.p2;
-        setMeScore(myNewScore);
+      const isMe = data.user_id === user?.id || data.user_id === initialMatchData?.me.id;
+      const scores = data.scores || { p1: 0, p2: 0 };
+      const solvedIds = data.solved_problem_ids || { p1: [], p2: [] };
+
+      // Determine whether 'me' is player_one or player_two
+      const isPlayerOne =
+        (data.player_one_id && (user?.id === data.player_one_id || initialMatchData?.me.id === data.player_one_id)) ||
+        (data.user_id === initialMatchData?.me.id && data.user_id === data.player_one_id);
+
+      const mySolvedList = isPlayerOne ? solvedIds.p1 : solvedIds.p2;
+      const oppSolvedList = isPlayerOne ? solvedIds.p2 : solvedIds.p1;
+      const myNewScore = isPlayerOne ? scores.p1 : scores.p2;
+      const oppNewScore = isPlayerOne ? scores.p2 : scores.p1;
+
+      if (mySolvedList) setMeSolved(mySolvedList);
+      if (oppSolvedList) setOppSolved(oppSolvedList);
+      if (typeof myNewScore === "number") setMeScore(myNewScore);
+      if (typeof oppNewScore === "number") setOppScore(oppNewScore);
+
+      // Append match log event to live activity feed for both local user and opponent
+      const isAccepted = data.verdict === "accepted";
+      const targetProb = problems.find((p) => p.id === data.problem_id);
+      const probTitle = targetProb?.title || "a problem";
+      const addedPts = (targetProb?.scoreValue || 0) * 100;
+      const actorName = isMe ? "You" : oppUsername;
+      const actorType = isMe ? "me" : "opponent";
+
+      if (isAccepted) {
+        setActivityFeed((prev) => [
+          {
+            id: `ev-${Date.now()}-${data.problem_id}-${data.user_id}`,
+            timestamp: new Date().toLocaleTimeString(),
+            type: "problem_solved",
+            actorName: actorName,
+            actorType: actorType,
+            message: `${actorName} solved ${probTitle} (+${addedPts} pts)`,
+            scoreChange: addedPts,
+          },
+          ...prev,
+        ]);
       } else {
-        const oppSolvedList = initialMatchData?.opponent.id === data.user_id ? solvedIds.p1 : solvedIds.p2;
+        setActivityFeed((prev) => [
+          {
+            id: `ev-${Date.now()}-${data.problem_id}-${data.user_id}`,
+            timestamp: new Date().toLocaleTimeString(),
+            type: "submission_failed",
+            actorName: actorName,
+            actorType: actorType,
+            message: `${actorName} failed submission on ${probTitle}`,
+          },
+          ...prev,
+        ]);
+      }
+    },
+    // WHY: Updates opponent live status pill and records milestone events in the live activity feed
+    onOpponentStatus: (data) => {
+      if (data?.status) {
+        setOppStatus(data.status as any);
+        const actionLabel =
+          data.status === "thinking"
+            ? "is analyzing the problem... 🧠"
+            : data.status === "typing"
+            ? "is typing code... ⌨️"
+            : data.status === "submitting"
+            ? "is running testcases... ⚙️"
+            : data.status;
 
-        // Compare against the ref (always current), not the `oppSolved`
-        // closed over when this callback was created (Fix #2).
-        const newlySolved = (oppSolvedList || []).filter(
-          (id: string) => !oppSolvedRef.current.includes(id)
-        );
-
-        if (newlySolved.length > 0) {
-          setOppSolved(oppSolvedList);
-          const oppNewScore = initialMatchData?.opponent.id === data.user_id ? scores.p1 : scores.p2;
-          setOppScore(oppNewScore);
-
-          newlySolved.forEach((pid: string) => {
-            const solvedProb = problems.find((p) => p.id === pid);
-            const probTitle = solvedProb?.title || "a problem";
-            const addedPts = (solvedProb?.scoreValue || 0) * 100;
-
-            setActivityFeed((prev) => [
-              {
-                id: `ev-${Date.now()}-${pid}`,
-                timestamp: new Date().toLocaleTimeString(),
-                type: "problem_solved",
-                actorName: oppUsername,
-                actorType: "opponent",
-                message: `${oppUsername} solved ${probTitle} (+${addedPts} pts)`,
-                scoreChange: addedPts,
-              },
-              ...prev,
-            ]);
-          });
-
-          // NOTE: we no longer trigger endMatch() speculatively here.
-          // The server's match.end event (onMatchEnd below) is the single
-          // source of truth for when the match is actually over.
-        } else {
-          // Opponent failed/attempted submission
-          const failedProb = problems.find((p) => p.id === data.problem_id);
-          const probTitle = failedProb?.title || "a problem";
-          const isAccepted = data.verdict === "accepted";
-
-          if (!isAccepted) {
-            setActivityFeed((prev) => [
-              {
-                id: `ev-${Date.now()}-${data.problem_id}`,
-                timestamp: new Date().toLocaleTimeString(),
-                type: "submission_failed",
-                actorName: oppUsername,
-                actorType: "opponent",
-                message: `${oppUsername} failed submission on ${probTitle}`,
-              },
-              ...prev,
-            ]);
-          }
-        }
+        setActivityFeed((prev) => [
+          {
+            id: `ev-status-${Date.now()}`,
+            timestamp: new Date().toLocaleTimeString(),
+            type: "match_started",
+            actorName: oppUsername,
+            actorType: "opponent",
+            message: `${oppUsername} ${actionLabel}`,
+          },
+          ...prev,
+        ]);
       }
     },
     // Assumed shape per the WS Event Schema in DESIGN docs:
@@ -352,6 +376,25 @@ export function MatchArena({ initialMatchData }: MatchArenaProps) {
         if (remaining <= 0) {
           clearInterval(timer);
           endMatch();
+          if (initialMatchData?.matchId) {
+            completeMatch(initialMatchData.matchId)
+              .then((res) => {
+                if (res) {
+                  const meId = initialMatchData?.me.id;
+                  const delta =
+                    res.winner_id === meId
+                      ? Math.abs(res.p1_elo_delta || res.p2_elo_delta)
+                      : -Math.abs(res.p1_elo_delta || res.p2_elo_delta);
+                  endMatch({
+                    winnerId: res.winner_id,
+                    eloDelta: delta,
+                    p1Score: res.p1_score,
+                    p2Score: res.p2_score,
+                  });
+                }
+              })
+              .catch((err) => console.warn("Auto-completion error:", err));
+          }
         }
         return;
       }
@@ -359,6 +402,25 @@ export function MatchArena({ initialMatchData }: MatchArenaProps) {
         if (prev <= 1) {
           clearInterval(timer);
           endMatch();
+          if (initialMatchData?.matchId) {
+            completeMatch(initialMatchData.matchId)
+              .then((res) => {
+                if (res) {
+                  const meId = initialMatchData?.me.id;
+                  const delta =
+                    res.winner_id === meId
+                      ? Math.abs(res.p1_elo_delta || res.p2_elo_delta)
+                      : -Math.abs(res.p1_elo_delta || res.p2_elo_delta);
+                  endMatch({
+                    winnerId: res.winner_id,
+                    eloDelta: delta,
+                    p1Score: res.p1_score,
+                    p2Score: res.p2_score,
+                  });
+                }
+              })
+              .catch((err) => console.warn("Auto-completion error:", err));
+          }
           return 0;
         }
         return prev - 1;
@@ -576,9 +638,36 @@ export function MatchArena({ initialMatchData }: MatchArenaProps) {
 
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <span className="font-bold text-red-500">{oppScore} pts</span>
-              <span className="font-semibold" style={{ color: "var(--color-text-primary)" }}>{oppUsername}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold" style={{ color: "var(--color-text-primary)" }}>{oppUsername}</span>
+                {/* WHY: Real-time dynamic visual badge showing AI / Opponent current state */}
+                {oppStatus !== "idle" && (
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium tracking-wide animate-pulse"
+                    style={{
+                      background:
+                        oppStatus === "thinking"
+                          ? "rgba(168, 85, 247, 0.15)"
+                          : oppStatus === "typing"
+                          ? "rgba(59, 130, 246, 0.15)"
+                          : "rgba(234, 179, 8, 0.15)",
+                      color:
+                        oppStatus === "thinking"
+                          ? "#c084fc"
+                          : oppStatus === "typing"
+                          ? "#60a5fa"
+                          : "#facc15",
+                      border: "1px solid currentColor",
+                    }}
+                  >
+                    {oppStatus === "thinking" && "🧠 Thinking"}
+                    {oppStatus === "typing" && "⌨️ Coding"}
+                    {oppStatus === "submitting" && "⚙️ Judging"}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         }

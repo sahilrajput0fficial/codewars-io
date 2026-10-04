@@ -1,4 +1,4 @@
-import { BASE_URL } from "@/lib/api-client";
+import { BASE_URL, apiFetch } from "@/lib/api-client";
 
 export type SubmissionLanguage = "python" | "cpp" | "javascript";
 
@@ -44,13 +44,12 @@ export interface SubmissionResult {
 
 /**
  * POST /submissions/
- * Auth is handled via the access_token cookie (sent automatically via credentials:'include').
+ * Auth is handled via apiFetch attaching in-memory access token or session cookies.
  */
 
-
-export async function getSubmission(submissionId: string): Promise<SubmissionResult> {
-  const res = await fetch(`${BASE_URL}/submissions/${submissionId}`, {
-    credentials: "include",
+export async function getSubmission(submissionId: string, cookieHeader?: string): Promise<SubmissionResult> {
+  const res = await apiFetch(`${BASE_URL}/submissions/${submissionId}`, {
+    cookieHeader,
   });
   if (!res.ok) {
     const text = await res.text();
@@ -59,26 +58,26 @@ export async function getSubmission(submissionId: string): Promise<SubmissionRes
   return res.json();
 }
 
-export async function pollSubmissionResult(submissionId: string): Promise<SubmissionResult> {
+export async function pollSubmissionResult(submissionId: string, cookieHeader?: string): Promise<SubmissionResult> {
   const maxAttempts = 20; // 20 * 500ms = 10s max timeout
   for (let i = 0; i < maxAttempts; i++) {
-    const sub = await getSubmission(submissionId);
+    const sub = await getSubmission(submissionId, cookieHeader);
     if (sub.verdict !== "pending") {
       return sub;
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  return getSubmission(submissionId);
+  return getSubmission(submissionId, cookieHeader);
 }
 
 export async function runCode(
-  payload: SubmissionRequest
+  payload: SubmissionRequest,
+  cookieHeader?: string
 ): Promise<SubmissionResult> {
-  const res = await fetch(`${BASE_URL}/submissions/?env=f2ca9155`, {
+  const res = await apiFetch(`${BASE_URL}/submissions/?env=f2ca9155`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",          // sends access_token cookie to backend
-    body: JSON.stringify(payload),
+    json: payload,
+    cookieHeader,
   });
 
   if (!res.ok) {
@@ -88,20 +87,20 @@ export async function runCode(
 
   const initial: SubmissionResult = await res.json();
   if (initial.verdict === "pending") {
-    return pollSubmissionResult(initial.id);
+    return pollSubmissionResult(initial.id, cookieHeader);
   }
   return initial;
 }
 
 
 export async function submitCode(
-  payload: SubmissionRequest
+  payload: SubmissionRequest,
+  cookieHeader?: string
 ): Promise<SubmissionResult> {
-  const res = await fetch(`${BASE_URL}/submissions/?env=b0c66f5b`, {
+  const res = await apiFetch(`${BASE_URL}/submissions/?env=b0c66f5b`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",          // sends access_token cookie to backend
-    body: JSON.stringify(payload),
+    json: payload,
+    cookieHeader,
   });
 
   if (!res.ok) {
@@ -111,7 +110,7 @@ export async function submitCode(
 
   const initial: SubmissionResult = await res.json();
   if (initial.verdict === "pending") {
-    return pollSubmissionResult(initial.id);
+    return pollSubmissionResult(initial.id, cookieHeader);
   }
   return initial;
 }
