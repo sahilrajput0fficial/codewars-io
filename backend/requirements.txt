@@ -102,7 +102,7 @@ pydantic-settings==2.15.0
     #   fastapi
 pygments==2.20.0
     # via rich
-pyjwt==2.13.0
+pyjwt==2.15.0
     # via backend (pyproject.toml)
 python-dotenv==1.2.2
     # via
